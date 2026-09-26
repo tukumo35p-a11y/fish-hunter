@@ -1,0 +1,679 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>フィッシュハンター</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    position: fixed; inset: 0;
+    background: #0a3d62;
+    font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif;
+    color: #fff;
+    touch-action: none;
+    -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+  }
+  canvas { display: block; position: absolute; inset: 0; width: 100%; height: 100%; cursor: pointer; }
+  canvas.holding { cursor: none; }
+
+  #hud {
+    position: absolute; left: 0; right: 0; top: 0;
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    padding: calc(10px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) 10px calc(16px + env(safe-area-inset-left));
+    background: linear-gradient(to bottom, rgba(0,0,0,.45), rgba(0,0,0,0));
+    pointer-events: none;
+    font-weight: bold;
+    font-size: clamp(16px, 4.2vw, 24px);
+    text-shadow: 0 2px 4px rgba(0,0,0,.6);
+    z-index: 2;
+  }
+  #hud .label { font-size: .7em; opacity: .85; margin-right: 6px; }
+  .poiInfo { display: flex; align-items: center; flex: 1; min-width: 0; max-width: 360px; }
+  #gauge {
+    position: relative; flex: 1; min-width: 80px;
+    height: 16px; margin: 0 8px;
+    border-radius: 8px;
+    background: rgba(255,255,255,.2);
+    border: 2px solid rgba(255,255,255,.75);
+    overflow: hidden;
+  }
+  #gaugeFill {
+    position: absolute; left: 0; top: 0; bottom: 0; width: 100%;
+    background: #2ecc71;
+    transition: width .3s ease, background-color .3s;
+  }
+  #gauge.shake { animation: shake .35s; }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+  }
+  #durability { min-width: 3.2em; text-align: right; font-size: .85em; }
+
+  .overlay {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(4, 22, 40, .6);
+    z-index: 3;
+    padding: 16px;
+  }
+  .overlay.hidden { display: none; }
+  .panel {
+    width: min(420px, 100%);
+    max-height: 100%; overflow-y: auto;
+    background: rgba(255,255,255,.96);
+    color: #123;
+    border-radius: 20px;
+    padding: 28px 22px;
+    text-align: center;
+    box-shadow: 0 12px 40px rgba(0,0,0,.4);
+  }
+  .panel h1 { font-size: clamp(26px, 7vw, 34px); color: #0a3d62; margin-bottom: 8px; }
+  .panel h2 { font-size: clamp(24px, 6.5vw, 30px); color: #c0392b; margin-bottom: 6px; }
+  .panel p { font-size: 15px; line-height: 1.6; margin-bottom: 14px; color: #345; }
+  .final { font-size: clamp(40px, 12vw, 56px); font-weight: bold; color: #0a3d62; margin: 6px 0 4px; }
+  .best { font-size: 14px; color: #678; margin-bottom: 18px; }
+  .legend { list-style: none; margin: 0 auto 20px; text-align: left; display: inline-block; font-size: 14px; }
+  .legend li { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+  .legend canvas { position: static; width: 48px; height: 28px; cursor: default; flex: none; }
+  .legend small { color: #c0392b; }
+  button {
+    display: block; width: 100%;
+    min-height: 60px;
+    font-size: 22px; font-weight: bold;
+    color: #fff;
+    background: linear-gradient(#ff9f43, #ee5a24);
+    border: none; border-radius: 14px;
+    box-shadow: 0 5px 0 #b33e12;
+    cursor: pointer;
+    touch-action: manipulation;
+    font-family: inherit;
+  }
+  button:active { transform: translateY(3px); box-shadow: 0 2px 0 #b33e12; }
+</style>
+<canvas id="game"></canvas>
+
+<div id="hud">
+  <div class="poiInfo">
+    <span class="label">ポイ</span>
+    <div id="gauge"><div id="gaugeFill"></div></div>
+    <span id="durability">100%</span>
+  </div>
+  <div><span class="label">スコア</span><span id="score">0</span></div>
+</div>
+
+<div id="startScreen" class="overlay">
+  <div class="panel">
+    <h1>🎣 フィッシュハンター</h1>
+    <p>長押しでポイを出して、魚の上で<b>指(ボタン)を離す</b>とすくえます。<br>
+       範囲内の魚はまとめて捕獲!<br>
+       すくうたびにポイが弱り、<b>大きい魚・速い魚</b>ほど大きなダメージ。<br>
+       破れたらゲーム終了です。</p>
+    <ul class="legend" id="legend"></ul>
+    <button id="startBtn">スタート</button>
+  </div>
+</div>
+
+<div id="endScreen" class="overlay hidden">
+  <div class="panel">
+    <h2>ポイが破れました</h2>
+    <p style="margin-bottom:0">あなたのスコア</p>
+    <div class="final" id="finalScore">0</div>
+    <div class="best" id="bestScore"></div>
+    <button id="retryBtn">リトライ</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  // ===== 設定 =====
+  const FISH_COUNT = 14;
+  const POI_BASE_RADIUS = 55;  // ポイの半径(画面サイズに応じて拡縮)
+  const SCOOP_WEAR = 3;        // すくうたびに必ず減る耐久度(空振りでも水で弱る)
+
+  // 魚の種類:size=楕円の横半径, speed=px/秒, points=得点, damage=すくった時のポイへのダメージ
+  const FISH_TYPES = [
+    { name: 'マンボウ', size: 46, speed: 35,  points: 10,  damage: 16, color: '#5dade2', belly: '#aed6f1', weight: 4, shape: 'round' },
+    { name: 'タイ',     size: 32, speed: 70,  points: 30,  damage: 9,  color: '#58d68d', belly: '#abebc6', weight: 4, shape: 'normal' },
+    { name: 'アジ',     size: 21, speed: 120, points: 60,  damage: 10, color: '#f5b041', belly: '#fad7a0', weight: 3, shape: 'normal' },
+    { name: 'キンギョ', size: 13, speed: 190, points: 100, damage: 13, color: '#ec407a', belly: '#f8bbd0', weight: 2, shape: 'slim' },
+  ];
+
+  // ===== 要素 =====
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const scoreEl = document.getElementById('score');
+  const gaugeEl = document.getElementById('gauge');
+  const gaugeFill = document.getElementById('gaugeFill');
+  const durabilityEl = document.getElementById('durability');
+  const startScreen = document.getElementById('startScreen');
+  const endScreen = document.getElementById('endScreen');
+  const finalScoreEl = document.getElementById('finalScore');
+  const bestScoreEl = document.getElementById('bestScore');
+
+  let W = 0, H = 0, dpr = 1, scale = 1;
+  let fishes = [], splashes = [], popups = [], bubbles = [];
+  let durability = 100, score = 0;
+  let state = 'title'; // title | wait | playing | ending | over
+  let endTimer = 0;
+  let lastTime = performance.now();
+
+  // ポイの状態(長押し中のみ表示)
+  const poi = { active: false, x: 0, y: 0, pointerId: null, holdTime: 0 };
+
+  function poiRadius() { return POI_BASE_RADIUS * scale; }
+
+  // ===== リサイズ(レスポンシブ) =====
+  function resize() {
+    const vv = window.visualViewport;
+    W = Math.round(vv ? vv.width : window.innerWidth);
+    H = Math.round(vv ? vv.height : window.innerHeight);
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // 画面の小さい端末では魚もポイも少し小さく
+    scale = Math.max(0.65, Math.min(1.25, Math.min(W, H) / 650));
+    for (const f of fishes) {
+      f.x = Math.min(Math.max(f.x, 0), W);
+      f.y = Math.min(Math.max(f.y, topMargin()), H);
+    }
+  }
+  window.addEventListener('resize', resize);
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', () => setTimeout(resize, 200));
+
+  function topMargin() { return 50; }
+
+  // ===== 魚 =====
+  function pickType() {
+    const total = FISH_TYPES.reduce((s, t) => s + t.weight, 0);
+    let r = Math.random() * total;
+    for (const t of FISH_TYPES) { if ((r -= t.weight) < 0) return t; }
+    return FISH_TYPES[0];
+  }
+
+  function createFish(fromEdge) {
+    const type = pickType();
+    const rx = type.size * scale;
+    let x, y;
+    const top = topMargin() + rx;
+    if (fromEdge) {
+      // 画面外の左右から入ってくる
+      const left = Math.random() < 0.5;
+      x = left ? -rx * 2 : W + rx * 2;
+      y = top + Math.random() * Math.max(10, H - top - rx);
+    } else {
+      x = rx + Math.random() * Math.max(10, W - rx * 2);
+      y = top + Math.random() * Math.max(10, H - top - rx);
+    }
+    let angle = Math.random() * Math.PI * 2;
+    if (fromEdge) angle = (x < 0 ? 0 : Math.PI) + (Math.random() - 0.5) * 0.8;
+    return {
+      type, x, y, angle,
+      targetAngle: angle,
+      speedMul: 0.8 + Math.random() * 0.4,
+      turnTimer: 1 + Math.random() * 3,
+      wiggle: Math.random() * Math.PI * 2,
+      entering: fromEdge,
+    };
+  }
+
+  function updateFish(f, dt) {
+    const t = f.type;
+    const rx = t.size * scale;
+    f.turnTimer -= dt;
+    if (f.turnTimer <= 0) {
+      f.targetAngle = f.angle + (Math.random() - 0.5) * Math.PI * 1.2;
+      f.turnTimer = 1.2 + Math.random() * 3;
+    }
+    // 画面端に近づいたら中央方向へ向きを変える
+    const margin = rx * 1.5;
+    const top = topMargin() + rx * 0.6;
+    if (!f.entering) {
+      if (f.x < margin || f.x > W - margin || f.y < top || f.y > H - rx * 0.6) {
+        const cx = W / 2 + (Math.random() - 0.5) * W * 0.4;
+        const cy = (top + H) / 2 + (Math.random() - 0.5) * H * 0.3;
+        f.targetAngle = Math.atan2(cy - f.y, cx - f.x);
+      }
+    } else if (f.x > margin && f.x < W - margin) {
+      f.entering = false;
+    }
+    // なめらかに旋回
+    let diff = f.targetAngle - f.angle;
+    diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+    const turnRate = 1.2 + t.speed / 80;
+    f.angle += Math.max(-turnRate * dt, Math.min(turnRate * dt, diff));
+
+    const sp = t.speed * f.speedMul * scale;
+    f.x += Math.cos(f.angle) * sp * dt;
+    f.y += Math.sin(f.angle) * sp * dt;
+    f.wiggle += dt * (4 + t.speed / 25);
+
+    // 念のため画面外に出すぎないよう制限
+    if (!f.entering) {
+      f.x = Math.min(Math.max(f.x, -rx), W + rx);
+      f.y = Math.min(Math.max(f.y, topMargin()), H + rx * 0.3);
+    }
+  }
+
+  function drawFishShape(c, type, rx, wiggle) {
+    const ry = rx * (type.shape === 'round' ? 0.72 : type.shape === 'slim' ? 0.5 : 0.55);
+    const tailSwing = Math.sin(wiggle) * ry * 0.35;
+    // 尾びれ(三角)
+    c.fillStyle = type.color;
+    c.beginPath();
+    c.moveTo(-rx * 0.8, 0);
+    c.lineTo(-rx * 1.55, -ry * 0.9 + tailSwing);
+    c.lineTo(-rx * 1.55, ry * 0.9 + tailSwing);
+    c.closePath();
+    c.fill();
+    // 背びれ(三角)
+    c.beginPath();
+    c.moveTo(-rx * 0.35, -ry * 0.85);
+    c.lineTo(rx * 0.05, -ry * 1.35);
+    c.lineTo(rx * 0.3, -ry * 0.85);
+    c.closePath();
+    c.fill();
+    // 体(楕円)
+    const g = c.createLinearGradient(0, -ry, 0, ry);
+    g.addColorStop(0, type.color);
+    g.addColorStop(1, type.belly);
+    c.fillStyle = g;
+    c.beginPath();
+    c.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+    c.fill();
+    c.strokeStyle = 'rgba(0,0,0,.18)';
+    c.lineWidth = Math.max(1, rx * 0.05);
+    c.stroke();
+    // えら
+    c.beginPath();
+    c.arc(rx * 0.35, 0, ry * 0.6, -0.9, 0.9);
+    c.stroke();
+    // 目
+    c.fillStyle = '#fff';
+    c.beginPath();
+    c.arc(rx * 0.6, -ry * 0.2, Math.max(2, ry * 0.22), 0, Math.PI * 2);
+    c.fill();
+    c.fillStyle = '#111';
+    c.beginPath();
+    c.arc(rx * 0.65, -ry * 0.2, Math.max(1.2, ry * 0.12), 0, Math.PI * 2);
+    c.fill();
+  }
+
+  function drawFish(f) {
+    const rx = f.type.size * scale;
+    ctx.save();
+    ctx.translate(f.x, f.y);
+    ctx.rotate(f.angle);
+    if (Math.cos(f.angle) < 0) ctx.scale(1, -1); // 背中が上になるよう反転
+    drawFishShape(ctx, f.type, rx, f.wiggle);
+    ctx.restore();
+  }
+
+  // すくい判定:魚の中心がポイの円内にあれば捕獲
+  function inPoi(f, px, py, r) {
+    const dx = f.x - px, dy = f.y - py;
+    return dx * dx + dy * dy <= r * r;
+  }
+
+  // ===== 背景の泡 =====
+  function initBubbles() {
+    bubbles = [];
+    const n = Math.round((W * H) / 25000) + 10;
+    for (let i = 0; i < n; i++) {
+      bubbles.push({ x: Math.random() * W, y: Math.random() * H, r: 1 + Math.random() * 3.5, v: 15 + Math.random() * 35, p: Math.random() * 6 });
+    }
+  }
+
+  function drawBackground(time) {
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#1e90c8');
+    g.addColorStop(0.55, '#0a5a8c');
+    g.addColorStop(1, '#06304f');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    // 光のゆらぎ
+    ctx.save();
+    ctx.globalAlpha = 0.07;
+    ctx.fillStyle = '#fff';
+    for (let i = 0; i < 5; i++) {
+      const x = ((i + 0.5) / 5) * W + Math.sin(time / 1500 + i) * 40;
+      ctx.beginPath();
+      ctx.moveTo(x - 20, 0);
+      ctx.lineTo(x + 30, 0);
+      ctx.lineTo(x + 120, H);
+      ctx.lineTo(x - 60, H);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // 底の砂
+    ctx.fillStyle = '#c8a86b';
+    ctx.beginPath();
+    ctx.moveTo(0, H);
+    for (let x = 0; x <= W; x += 20) ctx.lineTo(x, H - 14 - Math.sin(x / 60) * 6);
+    ctx.lineTo(W, H);
+    ctx.closePath();
+    ctx.fill();
+
+    // 泡
+    ctx.fillStyle = 'rgba(255,255,255,.35)';
+    for (const b of bubbles) {
+      ctx.beginPath();
+      ctx.arc(b.x + Math.sin(time / 700 + b.p) * 4, b.y, b.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function updateBubbles(dt) {
+    for (const b of bubbles) {
+      b.y -= b.v * dt;
+      if (b.y < -5) { b.y = H + 5; b.x = Math.random() * W; }
+    }
+  }
+
+  // ===== ポイ =====
+  function drawPoi(now) {
+    if (!poi.active) return;
+    const r = poiRadius();
+    const x = poi.x, y = poi.y;
+    const rate = durability / 100;
+
+    ctx.save();
+    // 持ち手(右下に伸びる)
+    const ang = Math.PI / 4;
+    const hx = x + Math.cos(ang) * r, hy = y + Math.sin(ang) * r;
+    ctx.strokeStyle = '#e74c3c';
+    ctx.lineCap = 'round';
+    ctx.lineWidth = Math.max(8, r * 0.2);
+    ctx.beginPath();
+    ctx.moveTo(hx, hy);
+    ctx.lineTo(hx + Math.cos(ang) * r * 1.4, hy + Math.sin(ang) * r * 1.4);
+    ctx.stroke();
+
+    // 和紙(耐久度が下がるほど透けて灰色っぽく)
+    ctx.fillStyle = `rgba(${Math.round(220 + 35 * rate)}, ${Math.round(220 + 35 * rate)}, ${Math.round(225 + 30 * rate)}, ${0.25 + 0.3 * rate})`;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 破れかけのひび(耐久度が低いほど多い)
+    const cracks = rate < 0.25 ? 4 : rate < 0.5 ? 2 : rate < 0.75 ? 1 : 0;
+    ctx.strokeStyle = 'rgba(40, 60, 80, .55)';
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < cracks; i++) {
+      const a = i * 2.1 + 0.4;
+      ctx.beginPath();
+      ctx.moveTo(x + Math.cos(a) * r * 0.9, y + Math.sin(a) * r * 0.9);
+      ctx.lineTo(x + Math.cos(a + 0.35) * r * 0.45, y + Math.sin(a + 0.35) * r * 0.45);
+      ctx.lineTo(x + Math.cos(a - 0.2) * r * 0.15, y + Math.sin(a - 0.2) * r * 0.15);
+      ctx.stroke();
+    }
+
+    // 枠
+    ctx.strokeStyle = '#e74c3c';
+    ctx.lineWidth = Math.max(4, r * 0.1);
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // 範囲内の魚をハイライト(すくえる目安)
+    ctx.strokeStyle = `rgba(255, 255, 120, ${0.6 + 0.3 * Math.sin(now / 120)})`;
+    ctx.lineWidth = 2;
+    for (const f of fishes) {
+      if (inPoi(f, x, y, r)) {
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, f.type.size * scale * 0.9, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  function scoop(x, y) {
+    if (state !== 'playing') return;
+    const r = poiRadius();
+    const caught = [];
+    for (let i = fishes.length - 1; i >= 0; i--) {
+      if (inPoi(fishes[i], x, y, r)) caught.push(fishes.splice(i, 1)[0]);
+    }
+
+    let damage = SCOOP_WEAR;
+    let gained = 0;
+    for (const f of caught) {
+      damage += f.type.damage;
+      gained += f.type.points;
+      popups.push({ x: f.x, y: f.y, text: '+' + f.type.points, life: 1 });
+      setTimeout(() => { if (state === 'playing' || state === 'ending') fishes.push(createFish(true)); }, 800);
+    }
+    // 複数匹まとめてすくうとボーナス
+    if (caught.length >= 2) {
+      const bonus = Math.round(gained * 0.2 * (caught.length - 1));
+      gained += bonus;
+      popups.push({ x, y: y - r - 10, text: `${caught.length}匹まとめて! +${bonus}`, life: 1.3, color: '#ffd32a' });
+    } else if (caught.length === 0) {
+      popups.push({ x, y, text: 'からぶり', life: 0.8, small: true });
+    }
+    score += gained;
+    durability = Math.max(0, durability - damage);
+
+    splashes.push({ x, y, r, life: 1 });
+    popups.push({ x, y: y + r + 16, text: `ポイ -${damage}%`, life: 0.9, small: true, color: '#ff7675' });
+    gaugeEl.classList.remove('shake');
+    void gaugeEl.offsetWidth; // アニメーションを再生し直す
+    gaugeEl.classList.add('shake');
+    vibrate(caught.length ? 40 : 15);
+    updateHud();
+
+    if (durability <= 0) {
+      state = 'ending';
+      endTimer = 1.0;
+      vibrate([80, 60, 120]);
+      popups.push({ x: W / 2, y: H / 2, text: 'ビリッ!', life: 1.2, color: '#ff7675', big: true });
+    }
+  }
+
+  function vibrate(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
+
+  function drawSplashes(dt) {
+    for (let i = splashes.length - 1; i >= 0; i--) {
+      const s = splashes[i];
+      s.life -= dt * 1.8;
+      if (s.life <= 0) { splashes.splice(i, 1); continue; }
+      const k = 1 - s.life;
+      ctx.strokeStyle = `rgba(255,255,255,${s.life * 0.8})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r * (1 + k * 0.6), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r * (0.6 + k * 0.8), 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+
+  function drawPopups(dt) {
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (let i = popups.length - 1; i >= 0; i--) {
+      const p = popups[i];
+      p.life -= dt;
+      p.y -= 40 * dt;
+      if (p.life <= 0) { popups.splice(i, 1); continue; }
+      ctx.globalAlpha = Math.min(1, p.life * 1.5);
+      ctx.font = `bold ${p.big ? 56 : p.small ? 16 : 26}px sans-serif`;
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = 'rgba(0,0,0,.6)';
+      ctx.strokeText(p.text, p.x, p.y);
+      ctx.fillStyle = p.color || '#fff';
+      ctx.fillText(p.text, p.x, p.y);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // ===== HUD =====
+  function updateHud() {
+    scoreEl.textContent = score;
+    durabilityEl.textContent = Math.round(durability) + '%';
+    gaugeFill.style.width = durability + '%';
+    gaugeFill.style.backgroundColor = durability > 60 ? '#2ecc71' : durability > 30 ? '#f1c40f' : '#e74c3c';
+  }
+
+  // ===== ゲーム進行 =====
+  function populate() {
+    fishes = [];
+    for (let i = 0; i < FISH_COUNT; i++) fishes.push(createFish(false));
+    // 大きい魚が奥になるよう並べ替え
+    fishes.sort((a, b) => b.type.size - a.type.size);
+  }
+
+  function startGame() {
+    durability = 100;
+    score = 0;
+    splashes = []; popups = [];
+    poi.active = false; poi.pointerId = null;
+    populate();
+    updateHud();
+    startScreen.classList.add('hidden');
+    endScreen.classList.add('hidden');
+    // ボタンのタップがそのままポイ操作にならないよう少し待つ
+    state = 'wait';
+    setTimeout(() => { state = 'playing'; }, 150);
+  }
+
+  function gameOver() {
+    state = 'over';
+    poi.active = false;
+    canvas.classList.remove('holding');
+    let best = 0;
+    try { best = Number(localStorage.getItem('fishHunterPoiBest') || 0); } catch (e) {}
+    if (score > best) {
+      best = score;
+      try { localStorage.setItem('fishHunterPoiBest', String(best)); } catch (e) {}
+      bestScoreEl.textContent = '🎉 ハイスコア更新!';
+    } else {
+      bestScoreEl.textContent = 'ハイスコア:' + best;
+    }
+    finalScoreEl.textContent = score;
+    endScreen.classList.remove('hidden');
+  }
+
+  function loop(now) {
+    const dt = Math.min(0.05, (now - lastTime) / 1000);
+    lastTime = now;
+
+    updateBubbles(dt);
+    for (const f of fishes) updateFish(f, dt);
+
+    drawBackground(now);
+    for (const f of fishes) drawFish(f);
+    drawSplashes(dt);
+    drawPoi(now);
+    drawPopups(dt);
+
+    if (state === 'ending') {
+      endTimer -= dt;
+      if (endTimer <= 0) gameOver();
+    }
+    requestAnimationFrame(loop);
+  }
+
+  // ===== 入力(マウス・タッチ共通) =====
+  // 押す → ポイ表示 / 動かす → 追従 / 離す → すくう / キャンセル → すくわずに消す
+  function localPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+  function pressStart(e, id) {
+    if (state !== 'playing' || poi.active) return;
+    const p = localPos(e);
+    poi.active = true;
+    poi.pointerId = id;
+    poi.x = p.x; poi.y = p.y;
+    canvas.classList.add('holding');
+  }
+  function pressMove(e, id) {
+    if (!poi.active || poi.pointerId !== id) return;
+    const p = localPos(e);
+    poi.x = p.x; poi.y = p.y;
+  }
+  function pressEnd(e, id, cancelled) {
+    if (!poi.active || poi.pointerId !== id) return;
+    if (e) { const p = localPos(e); poi.x = p.x; poi.y = p.y; }
+    poi.active = false;
+    poi.pointerId = null;
+    canvas.classList.remove('holding');
+    if (!cancelled) scoop(poi.x, poi.y);
+  }
+
+  if (window.PointerEvent) {
+    canvas.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      if (e.button !== undefined && e.button > 0) return; // 左クリック/タッチのみ
+      pressStart(e, e.pointerId);
+      if (poi.pointerId === e.pointerId) { try { canvas.setPointerCapture(e.pointerId); } catch (_) {} }
+    }, { passive: false });
+    canvas.addEventListener('pointermove', (e) => { e.preventDefault(); pressMove(e, e.pointerId); }, { passive: false });
+    canvas.addEventListener('pointerup', (e) => { e.preventDefault(); pressEnd(e, e.pointerId, false); }, { passive: false });
+    canvas.addEventListener('pointercancel', (e) => pressEnd(null, e.pointerId, true));
+  } else {
+    // 古いブラウザ向けフォールバック
+    canvas.addEventListener('touchstart', (e) => { e.preventDefault(); const t = e.changedTouches[0]; pressStart(t, t.identifier); }, { passive: false });
+    canvas.addEventListener('touchmove', (e) => { e.preventDefault(); for (const t of e.changedTouches) pressMove(t, t.identifier); }, { passive: false });
+    canvas.addEventListener('touchend', (e) => { e.preventDefault(); for (const t of e.changedTouches) pressEnd(t, t.identifier, false); }, { passive: false });
+    canvas.addEventListener('touchcancel', (e) => { for (const t of e.changedTouches) pressEnd(null, t.identifier, true); });
+    canvas.addEventListener('mousedown', (e) => pressStart(e, 'mouse'));
+    window.addEventListener('mousemove', (e) => pressMove(e, 'mouse'));
+    window.addEventListener('mouseup', (e) => pressEnd(e, 'mouse', false));
+  }
+
+  // スクロール・ズーム・長押しメニューを防止
+  document.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+  document.addEventListener('gesturestart', (e) => e.preventDefault());
+  document.addEventListener('contextmenu', (e) => e.preventDefault());
+  document.addEventListener('dblclick', (e) => e.preventDefault());
+
+  document.getElementById('startBtn').addEventListener('click', startGame);
+  document.getElementById('retryBtn').addEventListener('click', startGame);
+
+  // ===== スタート画面の凡例 =====
+  function buildLegend() {
+    const ul = document.getElementById('legend');
+    for (const t of FISH_TYPES) {
+      const li = document.createElement('li');
+      const c = document.createElement('canvas');
+      const r = window.devicePixelRatio || 1;
+      c.width = 48 * r; c.height = 28 * r;
+      const cc = c.getContext('2d');
+      cc.scale(r, r);
+      cc.translate(28, 15);
+      const rx = 6 + t.size / 46 * 10;
+      drawFishShape(cc, t, rx, 0);
+      li.appendChild(c);
+      const speed = t.speed < 50 ? 'おそい' : t.speed < 100 ? 'ふつう' : t.speed < 150 ? 'はやい' : 'とてもはやい';
+      const span = document.createElement('span');
+      span.innerHTML = `${t.name}(${speed}):${t.points}点 <small>ポイ-${t.damage}%</small>`;
+      li.appendChild(span);
+      ul.appendChild(li);
+    }
+  }
+
+  // ===== 初期化 =====
+  resize();
+  initBubbles();
+  buildLegend();
+  populate();
+  updateHud();
+  requestAnimationFrame(loop);
+})();
+</script>
+
+</body></html>
