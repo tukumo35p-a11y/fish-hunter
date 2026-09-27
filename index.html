@@ -293,7 +293,7 @@
   let fishes = [], splashes = [], popups = [], bubbles = [];
   let durability = 100, score = 0;
   // price=今使っているポイの値段, selPrice=選択中(次に買う)ポイの値段
-  let coins = loadCoins(), price = 50, selPrice = loadSelPrice(), roundCoins = 0, dmgMul = 1;
+  let coins = loadCoins(), price = POI_PRICES[0], selPrice = loadSelPrice(), roundCoins = 0, dmgMul = 1;
   let goldTimer = 8 + Math.random() * 7; // 最初の訪問は早め
   let inGame = false; // 最初のポイを買ってからコインが尽きる(やめる)までが1ゲーム
   let state = 'title'; // title | wait | playing | ending | between(次のポイ選択中) | over
@@ -865,7 +865,7 @@
       if (POI_PRICES.includes(v)) return v;
       if (v >= PRICE_MIN) return POI_PRICES[poiTier(v)]; // 旧10段階の値段は同じ色のポイへ
     } catch (e) {}
-    return 50;
+    return POI_PRICES[0]; // 初期は緑(10)のポイ
   }
   function loadBest() {
     try { return Number(localStorage.getItem('fishHunterPoiBest') || 0); } catch (e) { return 0; }
