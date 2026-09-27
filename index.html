@@ -79,6 +79,8 @@
   .legend li { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
   .legend canvas { position: static; width: 48px; height: 28px; cursor: default; flex: none; }
   .legend small { color: #c0392b; }
+  .legend .need { font-size: 12px; color: #567; }
+  .legend .need svg { width: 16px; height: 16px; vertical-align: -3px; margin-right: 2px; }
   button {
     display: block; width: 100%;
     min-height: 60px;
@@ -226,8 +228,13 @@
   const START_COINS = 1000;
   const PRICE_MIN = 10, PRICE_MAX = 100, PRICE_STEP = 10;
   const COINS_KEY = 'fishHunterCoins';
+  const SEL_KEY = 'fishHunterPoiPrice'; // 選択中のポイ
   // ポイの値段→ダメージ倍率(高いポイほど破れにくい。50コインで1倍)
   function damageMul(price) { return Math.pow(50 / price, 0.8); }
+  // ポイの値段→格(0:緑 1:青 2:銀 3:金)
+  const TIER_NAMES = ['緑', '青', '銀', '金'];
+  const TIER_PRICES = [10, 40, 70, 100]; // 各格の最安値(色の取得用)
+  function poiTier(price) { return price >= 100 ? 3 : price >= 70 ? 2 : price >= 40 ? 1 : 0; }
   // ポイの値段→枠と持ち手の色
   function poiColor(price) {
     if (price >= 100) return '#f1c40f'; // 金
@@ -237,14 +244,15 @@
   }
 
   // 魚の種類:size=楕円の横半径, speed=px/秒, points=得点, coins=もらえるコイン,
-  // damage=すくった時のポイへのダメージ, shy=ポイから逃げる度合い(0〜)
+  // damage=すくった時のポイへのダメージ, shy=ポイから逃げる度合い(0〜),
+  // tier=すくうのに必要なポイの格(0:緑 1:青 2:銀 3:金)。格上の魚をすくうとポイが即破れる
   const FISH_TYPES = [
-    { name: 'マンボウ', size: 46, speed: 35,  points: 10,  coins: 3,  damage: 16, color: '#5dade2', belly: '#aed6f1', weight: 4,   shape: 'round',  shy: 0.3 },
-    { name: 'タイ',     size: 32, speed: 70,  points: 30,  coins: 5,  damage: 9,  color: '#58d68d', belly: '#abebc6', weight: 4,   shape: 'normal', shy: 0.6 },
-    { name: 'アジ',     size: 21, speed: 120, points: 60,  coins: 8,  damage: 10, color: '#f5b041', belly: '#fad7a0', weight: 3,   shape: 'normal', shy: 0.8 },
-    { name: 'デメキン', size: 17, speed: 95,  points: 80,  coins: 10, damage: 11, color: '#2d3436', belly: '#636e72', weight: 2,   shape: 'round',  shy: 0.5, bigEyes: true },
-    { name: 'キンギョ', size: 13, speed: 190, points: 100, coins: 12, damage: 13, color: '#ec407a', belly: '#f8bbd0', weight: 2,   shape: 'slim',   shy: 1.0 },
-    { name: '金のキンギョ', size: 15, speed: 210, points: 500, coins: 60, damage: 14, color: '#f1c40f', belly: '#fff3b0', weight: 0.35, shape: 'slim', shy: 1.2, rare: true },
+    { name: 'マンボウ', size: 46, speed: 35,  points: 10,  coins: 3,  damage: 16, color: '#5dade2', belly: '#aed6f1', weight: 4,   shape: 'round',  shy: 0.3, tier: 0 },
+    { name: 'タイ',     size: 32, speed: 70,  points: 30,  coins: 5,  damage: 9,  color: '#58d68d', belly: '#abebc6', weight: 4,   shape: 'normal', shy: 0.6, tier: 0 },
+    { name: 'アジ',     size: 21, speed: 120, points: 60,  coins: 8,  damage: 10, color: '#f5b041', belly: '#fad7a0', weight: 3,   shape: 'normal', shy: 0.8, tier: 1 },
+    { name: 'デメキン', size: 17, speed: 95,  points: 80,  coins: 10, damage: 11, color: '#2d3436', belly: '#636e72', weight: 2,   shape: 'round',  shy: 0.5, bigEyes: true, tier: 1 },
+    { name: 'キンギョ', size: 13, speed: 190, points: 100, coins: 12, damage: 13, color: '#ec407a', belly: '#f8bbd0', weight: 2,   shape: 'slim',   shy: 1.0, tier: 2 },
+    { name: '金のキンギョ', size: 15, speed: 210, points: 500, coins: 60, damage: 14, color: '#f1c40f', belly: '#fff3b0', weight: 0.35, shape: 'slim', shy: 1.2, rare: true, tier: 3 },
   ];
 
   // ===== 要素 =====
@@ -590,10 +598,27 @@
   function scoop(x, y) {
     if (state !== 'playing') return;
     const r = poiRadius();
-    const caught = [];
-    for (let i = fishes.length - 1; i >= 0; i--) {
-      if (inPoi(fishes[i], x, y, r)) caught.push(fishes.splice(i, 1)[0]);
+    const inside = fishes.filter(f => inPoi(f, x, y, r));
+
+    // 格上の魚が入っていたらポイが即破れ、全部逃げる
+    const tooGood = inside.filter(f => f.type.tier > poiTier(price));
+    if (tooGood.length) {
+      for (const f of inside) {
+        f.targetAngle = Math.atan2(f.y - y, f.x - x);
+        f.boost = 2.5;
+      }
+      const best = tooGood.reduce((a, b) => (b.type.tier > a.type.tier ? b : a));
+      durability = 0;
+      splashes.push({ x, y, r, life: 1 });
+      popups.push({ x, y: y - r - 10, text: `${best.type.name}には弱すぎた!`, life: 1.4, color: '#ff7675' });
+      sfx.miss();
+      updateHud();
+      breakPoi();
+      return;
     }
+
+    const caught = inside;
+    fishes = fishes.filter(f => !caught.includes(f));
 
     let damage = SCOOP_WEAR;
     let gained = 0, gotCoins = 0;
@@ -631,13 +656,15 @@
     else sfx.catch(caught.length);
     updateHud();
 
-    if (durability <= 0) {
-      state = 'ending';
-      endTimer = 1.0;
-      vibrate([80, 60, 120]);
-      sfx.rip();
-      popups.push({ x: W / 2, y: H / 2, text: 'ビリッ!', life: 1.2, color: '#ff7675', big: true });
-    }
+    if (durability <= 0) breakPoi();
+  }
+
+  function breakPoi() {
+    state = 'ending';
+    endTimer = 1.0;
+    vibrate([80, 60, 120]);
+    sfx.rip();
+    popups.push({ x: W / 2, y: H / 2, text: 'ビリッ!', life: 1.2, color: '#ff7675', big: true });
   }
 
   const VIBE_KEY = 'fishHunterVibe';
@@ -791,7 +818,6 @@
   }
   function saveCoins() { try { localStorage.setItem(COINS_KEY, String(coins)); } catch (e) {} }
 
-  const SEL_KEY = 'fishHunterPoiPrice';
   function loadSelPrice() {
     try {
       const v = Number(localStorage.getItem(SEL_KEY));
@@ -1149,7 +1175,8 @@
       li.appendChild(c);
       const speed = t.speed < 50 ? 'おそい' : t.speed < 100 ? 'ふつう' : t.speed < 150 ? 'はやい' : 'とてもはやい';
       const span = document.createElement('span');
-      span.innerHTML = `${t.rare ? '✨' : ''}${t.name}(${speed}):${t.points}点 🪙${t.coins} <small>ポイ-${t.damage}%</small>`;
+      span.innerHTML = `${t.rare ? '✨' : ''}${t.name}(${speed}):${t.points}点 🪙${t.coins} <small>ポイ-${t.damage}%</small>` +
+        `<br><span class="need">${poiSvg(poiColor(TIER_PRICES[t.tier]))}${TIER_NAMES[t.tier]}${t.tier < 3 ? '以上' : ''}のポイ</span>`;
       li.appendChild(span);
       ul.appendChild(li);
     }
