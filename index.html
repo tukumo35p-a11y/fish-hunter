@@ -111,7 +111,9 @@
   #feverHud.on #feverLabel { color: #ffd32a; animation: feverBlink .5s infinite alternate; }
   @keyframes feverBlink { from { opacity: 1; } to { opacity: .45; } }
   .wallet { font-size: 17px; font-weight: bold; color: #b7791f; margin-bottom: 6px; }
-  .poiNote { font-size: 14px; color: #567; margin-bottom: 14px; }
+  .poiNote { font-size: 14px; color: #567; margin-bottom: 8px; }
+  .bestLine { font-size: 15px; color: #0a3d62; margin-bottom: 14px; }
+  .bestLine b { font-size: 18px; }
   .compactPanel { width: min(340px, 100%); padding: 22px 18px 18px; }
   .infoBtns { display: flex; gap: 8px; }
   .infoBtns button { flex: 1; font-size: 15px; min-height: 46px; }
@@ -235,6 +237,7 @@
     <h1>🎣 フィッシュハンター</h1>
     <div class="wallet">手持ち 🪙<span id="walletCoins">0</span></div>
     <div class="poiNote">使うポイ:<span id="titlePoi"></span></div>
+    <div class="bestLine">🏆 ハイスコア <b id="titleBest">0</b></div>
     <button id="startBtn">スタート</button>
     <div class="infoBtns">
       <button id="rulesBtn" class="sub">📖 ルール説明</button>
@@ -296,6 +299,7 @@
 <div id="pauseScreen" class="overlay hidden">
   <div class="panel">
     <h2 style="color:#0a3d62">ポーズ</h2>
+    <div class="bestLine">スコア <b id="pauseScore">0</b> / 🏆 ハイスコア <b id="pauseBest">0</b></div>
     <button id="resumeBtn" style="margin:12px 0 14px">再開</button>
     <div class="setting"><span>🔊 音</span><button id="soundToggle"></button></div>
     <div class="setting"><span>📳 振動</span><button id="vibeToggle"></button></div>
@@ -398,6 +402,7 @@
   let coins = loadCoins(), price = POI_PRICES[0], selPrice = loadSelPrice(), roundCoins = 0, dmgMul = 1;
   let goldTimer = 8 + Math.random() * 7; // 最初の訪問は早め
   let combo = 0, feverPts = 0;
+  let bestAtStart = 0, bestCelebrated = false;
   let fever = null;         // フィーバー中なら { t: 残り秒 }
   let stashedFish = null;   // フィーバー中に退避しておく普段の魚
   let inGame = false; // 最初のポイを買ってからコインが尽きる(やめる)までが1ゲーム
@@ -839,6 +844,11 @@
       popups.push({ x, y, text: 'からぶり!', life: 1.2, color: '#ff7675' });
     }
     score += gained;
+    // プレイ中にハイスコアを超えたら一度だけお知らせ
+    if (!bestCelebrated && bestAtStart > 0 && score > bestAtStart) {
+      bestCelebrated = true;
+      popups.push({ x: W / 2, y: H * 0.3, text: '🏆 ハイスコア更新!', life: 1.8, color: '#ffd32a' });
+    }
     roundCoins += gotCoins;
     coins += gotCoins;
     saveCoins();
@@ -1199,6 +1209,7 @@
     if (coins < PRICE_MIN) { showBroke(); return; }
     walletEl.textContent = coins;
     document.getElementById('titlePoi').innerHTML = poiSvg(poiColor(selPrice)) + ' 🪙' + selPrice;
+    document.getElementById('titleBest').textContent = loadBest();
     showInGameUi(false);
     endScreen.classList.add('hidden');
     startScreen.classList.remove('hidden');
@@ -1221,6 +1232,8 @@
     if (affordable(selPrice) < PRICE_MIN) { showBroke(); return; }
     inGame = true;
     score = 0;
+    bestAtStart = loadBest();
+    bestCelebrated = false;
     combo = 0; feverPts = 0; fever = null; stashedFish = null;
     populate();
     goldTimer = 8 + Math.random() * 7;
@@ -1306,6 +1319,8 @@
     resetPoi();
     showInGameUi(false);
     updateSettings();
+    document.getElementById('pauseScore').textContent = score;
+    document.getElementById('pauseBest').textContent = Math.max(loadBest(), score);
     pauseScreen.classList.remove('hidden');
     sfx.click();
   }
