@@ -99,6 +99,17 @@
   button.sub:active { box-shadow: 0 2px 0 #065a9e; }
 
   .hudRight { display: flex; align-items: center; gap: 14px; white-space: nowrap; }
+  #feverHud {
+    position: absolute; z-index: 4; pointer-events: none;
+    top: calc(46px + env(safe-area-inset-top)); left: calc(16px + env(safe-area-inset-left)); right: calc(16px + env(safe-area-inset-right));
+    display: flex; align-items: center; gap: 8px;
+    font-weight: bold; font-size: 14px; text-shadow: 0 1px 3px rgba(0,0,0,.7); white-space: nowrap;
+  }
+  #feverGauge { flex: 1; max-width: 360px; height: 10px; border-radius: 5px; background: rgba(255,255,255,.2); border: 1.5px solid rgba(255,255,255,.6); overflow: hidden; }
+  #feverFill { height: 100%; width: 0; background: linear-gradient(90deg, #ff9f43, #ff4757); transition: width .25s; }
+  #feverHud.on #feverFill { background: linear-gradient(90deg, #f1c40f, #fff3b0); transition: none; }
+  #feverHud.on #feverLabel { color: #ffd32a; animation: feverBlink .5s infinite alternate; }
+  @keyframes feverBlink { from { opacity: 1; } to { opacity: .45; } }
   .wallet { font-size: 17px; font-weight: bold; color: #b7791f; margin-bottom: 6px; }
   .poiNote { font-size: 14px; color: #567; margin-bottom: 14px; }
   .compactPanel { width: min(340px, 100%); padding: 22px 18px 18px; }
@@ -194,6 +205,11 @@
     <div>🪙<span id="coins">0</span></div>
   </div>
 </div>
+<div id="feverHud" hidden>
+  <span id="feverLabel">🔥</span>
+  <div id="feverGauge"><div id="feverFill"></div></div>
+  <span id="comboLabel"></span>
+</div>
 
 
 <div id="poiPicker" hidden>
@@ -238,6 +254,15 @@
       <li>格上の魚をすくおうとすると<b>即破れて</b>魚も逃げる</li>
       <li>破れたら選んでいるポイを自動で購入して続行(コイン不足なら買える一番高いポイ)</li>
       <li>画面下のアイコンを長押し(PCは右クリック)でポイを変更。100%(未使用)ならすぐ交換、使用後は次のポイから</li>
+    </ul>
+    <h3>🔥 フィーバータイム</h3>
+    <ul>
+      <li>すくいに成功するとフィーバーポイントがたまる(画面上の🔥ゲージ)</li>
+      <li><b>連続で成功(コンボ)</b>するほど多くたまる。からぶり・ポイが破れるとコンボは途切れる</li>
+      <li>ゲージが満タンで<b>30秒間のフィーバータイム</b>に突入</li>
+      <li>金のカニ・金のデメキン・金のキンギョだけが超高速で出現</li>
+      <li>ポイは無料の金のポイ。からぶりしても減らない</li>
+      <li>終わるとゲージは0に。スコアとコインはそのままで、選んでいるポイを買って再開</li>
     </ul>
     <h3>コイン・スコア</h3>
     <ul>
@@ -300,6 +325,8 @@
   const START_COINS = 100;
   const POI_PRICES = [10, 40, 70, 100]; // 買えるポイ(緑・青・銀・金)
   const PRICE_MIN = POI_PRICES[0];
+  // フィーバータイム:コンボでフィーバーポイントがたまり、FEVER_MAXで30秒間突入
+  const FEVER_MAX = 100, FEVER_TIME = 30, FEVER_FISH = 8;
   const COINS_KEY = 'fishHunterCoins2'; // 初期コイン100の新ルール(旧データは引き継がない)
   // 金のキンギョ:定期的に訪れ、しばらくすると去る
   const GOLD_VISIT_MIN = 20, GOLD_VISIT_RAND = 15; // 次に来るまでの秒数(20〜35秒)
@@ -329,6 +356,9 @@
     { name: 'デメキン', size: 17, speed: 95,  points: 80,  coins: 21, damage: 11, color: '#2d3436', belly: '#636e72', weight: 2,   shape: 'round',  shy: 0.5, bigEyes: true, tier: 1 },
     { name: 'キンギョ', size: 13, speed: 190, points: 100, coins: 24, damage: 13, color: '#ec407a', belly: '#f8bbd0', weight: 2,   shape: 'slim',   shy: 1.0, tier: 2 },
     { name: '金のキンギョ', size: 15, speed: 420, points: 500, coins: 120, damage: 14, color: '#f1c40f', belly: '#fff3b0', weight: 0.9, shape: 'slim', shy: 1.2, rare: true, tier: 3 },
+    // フィーバータイム限定(weight 0 = 普段は出ない)
+    { name: '金のカニ',     size: 16, speed: 520, points: 600, coins: 150, damage: 0, color: '#f1c40f', belly: '#fff3b0', weight: 0, shape: 'crab',  shy: 0,   fever: true, glow: true, straight: true, tier: 3 },
+    { name: '金のデメキン', size: 17, speed: 380, points: 400, coins: 100, damage: 0, color: '#f1c40f', belly: '#fff3b0', weight: 0, shape: 'round', shy: 1.0, fever: true, glow: true, bigEyes: true, tier: 3 },
   ];
 
   // ===== 要素 =====
@@ -358,6 +388,9 @@
   // price=今使っているポイの値段, selPrice=選択中(次に買う)ポイの値段
   let coins = loadCoins(), price = POI_PRICES[0], selPrice = loadSelPrice(), roundCoins = 0, dmgMul = 1;
   let goldTimer = 8 + Math.random() * 7; // 最初の訪問は早め
+  let combo = 0, feverPts = 0;
+  let fever = null;         // フィーバー中なら { t: 残り秒 }
+  let stashedFish = null;   // フィーバー中に退避しておく普段の魚
   let inGame = false; // 最初のポイを買ってからコインが尽きる(やめる)までが1ゲーム
   let state = 'title'; // title | wait | playing | ending | between(次のポイ選択中) | over
   let endTimer = 0;
@@ -415,7 +448,7 @@
       y = top + Math.random() * Math.max(10, H - top - rx);
     }
     let angle = Math.random() * Math.PI * 2;
-    if (fromEdge) angle = (x < 0 ? 0 : Math.PI) + (Math.random() - 0.5) * 0.8;
+    if (fromEdge) angle = (x < 0 ? 0 : Math.PI) + (Math.random() - 0.5) * (type.straight ? 0.5 : 0.8);
     return {
       type, x, y, angle,
       targetAngle: angle,
@@ -433,6 +466,15 @@
   function updateFish(f, dt) {
     const t = f.type;
     const rx = t.size * scale;
+    if (t.straight) {
+      // まっすぐ横切って、画面の外に出たら消える
+      const sp = t.speed * f.speedMul * scale;
+      f.x += Math.cos(f.angle) * sp * dt;
+      f.y += Math.sin(f.angle) * sp * dt;
+      f.wiggle += dt * 20;
+      if ((f.x < -rx * 4 && Math.cos(f.angle) < 0) || (f.x > W + rx * 4 && Math.cos(f.angle) > 0) || f.y < topMargin() - rx * 2 || f.y > H + rx * 2) f.gone = true;
+      return;
+    }
     f.stay -= dt;
     if (f.stay <= 0 && !f.leaving) {
       f.leaving = true;
@@ -487,7 +529,48 @@
     }
   }
 
+  // 金のカニ(横歩き。真上から見た形)
+  function drawCrab(c, type, rx, wiggle) {
+    const ry = rx * 0.7;
+    c.strokeStyle = '#b7950b';
+    c.lineWidth = Math.max(1.5, rx * 0.12);
+    c.lineCap = 'round';
+    for (const side of [-1, 1]) {
+      for (let i = 0; i < 3; i++) { // 脚
+        const a = (i - 1) * 0.5 + Math.sin(wiggle + i) * 0.25;
+        c.beginPath();
+        c.moveTo(side * rx * 0.6, (i - 1) * ry * 0.5);
+        c.lineTo(side * rx * 1.35, (i - 1) * ry * 0.6 + a * rx * 0.4);
+        c.stroke();
+      }
+      // はさみ
+      c.beginPath();
+      c.moveTo(side * rx * 0.45, -ry * 0.7);
+      c.lineTo(side * rx * 0.8, -ry * 1.5);
+      c.stroke();
+      c.fillStyle = type.color;
+      c.beginPath();
+      c.arc(side * rx * 0.85, -ry * 1.65, rx * 0.32, 0, Math.PI * 2);
+      c.fill();
+    }
+    const g = c.createLinearGradient(0, -ry, 0, ry);
+    g.addColorStop(0, type.color);
+    g.addColorStop(1, type.belly);
+    c.fillStyle = g;
+    c.beginPath();
+    c.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+    c.fill();
+    c.stroke();
+    c.fillStyle = '#111';
+    for (const side of [-1, 1]) {
+      c.beginPath();
+      c.arc(side * rx * 0.3, -ry * 0.75, Math.max(1.5, rx * 0.12), 0, Math.PI * 2);
+      c.fill();
+    }
+  }
+
   function drawFishShape(c, type, rx, wiggle) {
+    if (type.shape === 'crab') { drawCrab(c, type, rx, wiggle); return; }
     const ry = rx * (type.shape === 'round' ? 0.72 : type.shape === 'slim' ? 0.5 : 0.55);
     const tailSwing = Math.sin(wiggle) * ry * 0.35;
     // 尾びれ(三角)
@@ -537,7 +620,7 @@
 
   function drawFish(f, now) {
     const rx = f.type.size * scale;
-    if (f.type.rare) {
+    if (f.type.rare || f.type.glow) {
       // レア魚はキラキラ光る
       ctx.save();
       const glow = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, rx * 2.4);
@@ -557,8 +640,10 @@
     }
     ctx.save();
     ctx.translate(f.x, f.y);
-    ctx.rotate(f.angle);
-    if (Math.cos(f.angle) < 0) ctx.scale(1, -1); // 背中が上になるよう反転
+    if (f.type.shape !== 'crab') { // カニは向きを変えずに横歩き
+      ctx.rotate(f.angle);
+      if (Math.cos(f.angle) < 0) ctx.scale(1, -1); // 背中が上になるよう反転
+    }
     drawFishShape(ctx, f.type, rx, f.wiggle);
     ctx.restore();
   }
@@ -705,8 +790,9 @@
     const inside = fishes.filter(f => inPoi(f, x, y, r));
 
     // 格上の魚が入っていたらポイが即破れ、全部逃げる
-    const tooGood = inside.filter(f => f.type.tier > poiTier(price));
+    const tooGood = fever ? [] : inside.filter(f => f.type.tier > poiTier(price));
     if (tooGood.length) {
+      combo = 0;
       for (const f of inside) {
         f.targetAngle = Math.atan2(f.y - y, f.x - x);
         f.boost = 2.5;
@@ -732,7 +818,7 @@
       gotCoins += f.type.coins;
       popups.push({ x: f.x, y: f.y, text: `+${f.type.points} 🪙${f.type.coins}`, life: 1, color: f.type.rare ? '#ffd32a' : null });
       if (f.type.rare) popups.push({ x: f.x, y: f.y - 34, text: '✨大当たり!', life: 1.4, color: '#ffd32a' });
-      setTimeout(() => { if (inGame) fishes.push(createFish(true)); }, 800);
+      if (!fever) setTimeout(() => { if (inGame && !fever) fishes.push(createFish(true)); }, 800);
     }
     // 複数匹まとめてすくうとボーナス
     if (caught.length >= 2) {
@@ -747,20 +833,79 @@
     coins += gotCoins;
     saveCoins();
     damage = caught.length === 0 ? MISS_DAMAGE : Math.max(1, Math.round(damage * dmgMul));
+    if (fever) damage = 0; // フィーバー中の金のポイは減らない
     durability = Math.max(0, durability - damage);
 
+    // コンボとフィーバーポイント(フィーバー中はたまらない)
+    if (!fever) {
+      if (caught.length) {
+        combo++;
+        const gain = Math.min(5 * combo, 25) + 5 * (caught.length - 1);
+        feverPts = Math.min(FEVER_MAX, feverPts + gain);
+        if (combo >= 2) popups.push({ x, y: y - r - 34, text: `${combo}コンボ!`, life: 1, small: true, color: '#ff9f43' });
+      } else {
+        combo = 0;
+      }
+    }
+
     splashes.push({ x, y, r, life: 1 });
-    if (caught.length) popups.push({ x, y: y + r + 16, text: `ポイ -${damage}%`, life: 0.9, small: true, color: '#ff7675' });
+    if (caught.length && !fever) popups.push({ x, y: y + r + 16, text: `ポイ -${damage}%`, life: 0.9, small: true, color: '#ff7675' });
     gaugeEl.classList.remove('shake');
     void gaugeEl.offsetWidth; // アニメーションを再生し直す
     gaugeEl.classList.add('shake');
     vibrate(caught.length ? 40 : 15);
     if (caught.length === 0) sfx.miss();
-    else if (caught.some(f => f.type.rare)) sfx.rare();
+    else if (caught.some(f => f.type.rare || f.type.fever)) sfx.rare();
     else sfx.catch(caught.length);
     updateHud();
 
+    if (!fever && feverPts >= FEVER_MAX) { startFever(); return; } // ポイが破れる時でもフィーバー優先
     if (durability <= 0) breakPoi();
+  }
+
+  // ===== フィーバータイム =====
+  const FEVER_TYPES = FISH_TYPES.filter(t => t.fever || t.rare);
+  function feverFish() {
+    const t = FEVER_TYPES[Math.floor(Math.random() * FEVER_TYPES.length)];
+    const f = createFish(true, t);
+    f.stay = Infinity; // フィーバー中の金のキンギョは去らない
+    return f;
+  }
+  function startFever() {
+    fever = { t: FEVER_TIME };
+    combo = 0;
+    resetPoi();
+    closePalette();
+    stashedFish = fishes;
+    fishes = [];
+    for (let i = 0; i < FEVER_FISH; i++) fishes.push(feverFish());
+    // 無料の金のポイ(破れない)
+    price = 100;
+    dmgMul = 0;
+    durability = 100;
+    state = 'wait';
+    setTimeout(() => { if (state === 'wait') state = 'playing'; }, 300);
+    popups.push({ x: W / 2, y: H / 2, text: 'フィーバータイム!!', life: 2, color: '#ffd32a', big: true });
+    sfx.fever();
+    vibrate([60, 40, 60, 40, 120]);
+    updateHud();
+    updatePicker();
+  }
+  function endFever(silent) {
+    fever = null;
+    feverPts = 0;
+    combo = 0;
+    resetPoi();
+    fishes = stashedFish || fishes.filter(f => !f.type.fever);
+    stashedFish = null;
+    while (fishes.length < FISH_COUNT) fishes.push(createFish(true));
+    updateHud();
+    if (silent) return;
+    popups.push({ x: W / 2, y: H / 2 - 40, text: 'フィーバー終了', life: 1.6, color: '#fff', big: true });
+    // 選んでいるポイを買って再開
+    const p = affordable(selPrice);
+    if (p < PRICE_MIN) { sfx.broke(); finishGame(true); return; }
+    buyPoi(p);
   }
 
   function breakPoi() {
@@ -853,6 +998,8 @@
     coin() { tone(1976, 0.12, { type: 'square', vol: 0.06 }); tone(2637, 0.3, { type: 'square', vol: 0.06, delay: 0.08 }); },
     // ボタン
     click() { tone(880, 0.06, { type: 'triangle', vol: 0.1 }); },
+    // フィーバー突入
+    fever() { [523, 659, 784, 1047, 1319, 1568].forEach((f, i) => tone(f, 0.25, { type: 'square', vol: 0.07, delay: i * 0.07 })); },
     // コインがなくなった
     broke() { [392, 330, 262].forEach((f, i) => tone(f, 0.35, { type: 'triangle', vol: 0.14, delay: i * 0.22 })); },
   };
@@ -901,7 +1048,19 @@
     coinsEl.textContent = coins;
     durabilityEl.textContent = Math.round(durability) + '%';
     gaugeFill.style.width = durability + '%';
-    gaugeFill.style.backgroundColor = durability > 60 ? '#2ecc71' : durability > 30 ? '#f1c40f' : '#e74c3c';
+    gaugeFill.style.backgroundColor = fever ? '#ffd32a' : durability > 60 ? '#2ecc71' : durability > 30 ? '#f1c40f' : '#e74c3c';
+    const fh = document.getElementById('feverHud');
+    fh.hidden = !inGame;
+    fh.classList.toggle('on', !!fever);
+    if (fever) {
+      document.getElementById('feverLabel').textContent = `🔥FEVER ${Math.ceil(fever.t)}秒`;
+      document.getElementById('feverFill').style.width = (fever.t / FEVER_TIME * 100) + '%';
+      document.getElementById('comboLabel').textContent = '';
+    } else {
+      document.getElementById('feverLabel').textContent = '🔥';
+      document.getElementById('feverFill').style.width = (feverPts / FEVER_MAX * 100) + '%';
+      document.getElementById('comboLabel').textContent = combo >= 2 ? `${combo}コンボ` : '';
+    }
   }
 
   // ===== ゲーム進行 =====
@@ -956,7 +1115,7 @@
   }
   // 耐久度100%(まだ使っていない)ポイは、代金を返してすぐ別のポイに交換できる
   function canSwap() {
-    return inGame && durability >= 100 && (state === 'playing' || state === 'wait');
+    return inGame && !fever && durability >= 100 && (state === 'playing' || state === 'wait');
   }
   function updatePicker() {
     document.getElementById('poiBtnIcon').innerHTML = poiSvg(poiColor(selPrice));
@@ -1039,6 +1198,7 @@
     if (affordable(selPrice) < PRICE_MIN) { showBroke(); return; }
     inGame = true;
     score = 0;
+    combo = 0; feverPts = 0; fever = null; stashedFish = null;
     populate();
     goldTimer = 8 + Math.random() * 7;
     splashes = []; popups = [];
@@ -1066,6 +1226,7 @@
   // ポイが破れた → 選択中のポイを自動で買って続行
   function poiBroken() {
     resetPoi();
+    combo = 0; // ポイが破れたらコンボは途切れる
     const net = roundCoins - price;
     popups.push({ x: W / 2, y: H / 2 + 60, text: `このポイの収支 ${net >= 0 ? '+' : ''}${net}`, life: 1.8, small: true, color: net >= 0 ? '#ffd32a' : '#fff' });
     const p = affordable(selPrice);
@@ -1076,7 +1237,9 @@
   }
 
   function finishGame(broke) {
+    if (fever) endFever(true);
     inGame = false;
+    updateHud(); // フィーバーゲージを隠す
     state = 'over';
     resetPoi();
     showInGameUi(false);
@@ -1148,15 +1311,24 @@
     for (const f of fishes) updateFish(f, sdt);
     if (fishes.some(f => f.gone)) {
       fishes = fishes.filter(f => !f.gone);
-      while (fishes.length < FISH_COUNT) fishes.push(createFish(true));
+      if (!fever) while (fishes.length < FISH_COUNT) fishes.push(createFish(true));
     }
-    goldTimer -= sdt;
-    if (goldTimer <= 0) {
+    if (fever) {
+      while (fishes.length < FEVER_FISH) fishes.push(feverFish());
+      fever.t -= sdt;
+      updateHud();
+      if (fever.t <= 0) endFever(false);
+    } else goldTimer -= sdt;
+    if (!fever && goldTimer <= 0) {
       goldTimer = GOLD_VISIT_MIN + Math.random() * GOLD_VISIT_RAND;
       if (!fishes.some(f => f.type.rare)) fishes.push(createFish(true, FISH_TYPES.find(t => t.rare)));
     }
 
     drawBackground(now);
+    if (fever) { // フィーバー中は金色に輝く
+      ctx.fillStyle = `rgba(255, 200, 40, ${0.12 + 0.06 * Math.sin(now / 150)})`;
+      ctx.fillRect(0, 0, W, H);
+    }
     for (const f of fishes) drawFish(f, now);
     drawSplashes(sdt);
     drawPoi(now);
@@ -1353,7 +1525,7 @@
     const strength = ['やぶれやすい', 'ふつう', 'じょうぶ', 'とてもじょうぶ'];
     document.getElementById('poiTable').innerHTML = POI_PRICES.map((p) => {
       const tier = poiTier(p);
-      const names = FISH_TYPES.filter(t => t.tier <= tier).map(t => t.name).join('・');
+      const names = FISH_TYPES.filter(t => t.tier <= tier && !t.fever).map(t => t.name).join('・');
       return `<div class="poiRow">${poiSvg(poiColor(p))}<div><b>${TIER_NAMES[tier]} 🪙${p}</b>(${strength[tier]})<br>すくえる魚:${names}</div></div>`;
     }).join('');
   }
@@ -1373,8 +1545,10 @@
       li.appendChild(c);
       const speed = t.speed < 50 ? 'おそい' : t.speed < 100 ? 'ふつう' : t.speed < 150 ? 'はやい' : 'とてもはやい';
       const span = document.createElement('span');
-      span.innerHTML = `${t.rare ? '✨' : ''}${t.name}(${speed}):${t.points}点 🪙${t.coins}` +
-        `<br><span class="need">${poiSvg(poiColor(POI_PRICES[t.tier]))}${TIER_NAMES[t.tier]}${t.tier < 3 ? '以上' : ''}のポイ</span>`;
+      const speedTxt = t.fever ? '超高速' + (t.straight ? '・直進' : '') : speed;
+      const need = t.fever ? '<span class="need">🔥フィーバータイム限定</span>'
+        : `<span class="need">${poiSvg(poiColor(POI_PRICES[t.tier]))}${TIER_NAMES[t.tier]}${t.tier < 3 ? '以上' : ''}のポイ</span>`;
+      span.innerHTML = `${t.rare || t.fever ? '✨' : ''}${t.name}(${speedTxt}):${t.points}点 🪙${t.coins}<br>${need}`;
       li.appendChild(span);
       ul.appendChild(li);
     }
