@@ -119,6 +119,13 @@
   }
   #poiBtn:active { transform: scale(.94); box-shadow: none; }
   #poiBtn svg { width: 34px; height: 34px; }
+  /* ポイを出している間はアイコンがキャンセル場所になる */
+  #poiBtn .cancelIcon { display: none; font-size: 26px; line-height: 1; }
+  #poiPicker.cancelMode #poiBtn { background: rgba(192,57,43,.55); border-color: #fff; transition: transform .1s, background-color .1s; }
+  #poiPicker.cancelMode #poiBtn > span { display: none; }
+  #poiPicker.cancelMode #poiBtn .cancelIcon { display: block; }
+  #poiPicker.cancelMode #poiBtn .cancelLabel { display: block; font-size: 10px; font-weight: bold; }
+  #poiPicker.overCancel #poiBtn { background: #e74c3c; transform: scale(1.25); }
   #palette {
     pointer-events: auto; touch-action: none;
     width: min(calc(100% - 16px), 520px); margin-bottom: 8px; padding: 6px 6px 4px;
@@ -171,7 +178,7 @@
     <div class="head" id="paletteHead">次のポイを選ぶ</div>
     <div class="row" id="paletteRow"></div>
   </div>
-  <button id="poiBtn" aria-label="ポイを変更(長押し・右クリック)"><span id="poiBtnIcon"></span><span id="poiBtnPrice"></span></button>
+  <button id="poiBtn" aria-label="ポイを変更(長押し・右クリック)"><span id="poiBtnIcon"></span><span id="poiBtnPrice"></span><b class="cancelIcon">✕</b><b class="cancelIcon cancelLabel">キャンセル</b></button>
 </div>
 
 <button id="pauseBtn" aria-label="ポーズ" hidden>⏸</button>
@@ -179,7 +186,8 @@
 <div id="startScreen" class="overlay">
   <div class="panel">
     <h1>🎣 フィッシュハンター</h1>
-    <p>長押しでポイを出し、魚の上で<b>離す</b>とすくえます。<br>
+    <p><b>長押し</b>でポイを出し、魚の上で<b>離す</b>とすくえます。<br>
+       やめる時は画面下の✕まで運んで離す。<br>
        魚は<b>ポイから逃げる</b>ので素早く!<br>
        ポイが破れたら同じポイを自動で買って続行。<br>
        コインが尽きたら終わり。</p>
@@ -287,7 +295,9 @@
   let lastTime = performance.now();
 
   // ポイの状態(長押し中のみ表示)
-  const poi = { active: false, x: 0, y: 0, pointerId: null, holdTime: 0 };
+  // pending=長押し待ち(まだポイは出ていない) / active=ポイを出している / overCancel=キャンセル場所の上
+  const poi = { active: false, pending: false, overCancel: false, x: 0, y: 0, pointerId: null, holdStart: 0, holdTimer: null };
+  const HOLD_MS = 300; // この時間押し続けるとポイが出る
 
   function poiRadius() { return POI_BASE_RADIUS * scale; }
 
@@ -539,7 +549,20 @@
 
   // ===== ポイ =====
   function drawPoi(now) {
+    if (poi.pending) {
+      // 長押し中:ポイが出るまでのゲージ
+      const k = Math.min(1, (now - poi.holdStart) / HOLD_MS);
+      ctx.save();
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = 'rgba(255,255,255,.35)';
+      ctx.beginPath(); ctx.arc(poi.x, poi.y, 22, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = poiColor(price);
+      ctx.beginPath(); ctx.arc(poi.x, poi.y, 22, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2); ctx.stroke();
+      ctx.restore();
+      return;
+    }
     if (!poi.active) return;
+    if (poi.overCancel) ctx.globalAlpha = 0.45; // キャンセル場所の上では薄く
     const r = poiRadius();
     const x = poi.x, y = poi.y;
     const rate = durability / 100;
@@ -593,6 +616,7 @@
       }
     }
     ctx.restore();
+    ctx.globalAlpha = 1;
   }
 
   function scoop(x, y) {
@@ -948,7 +972,7 @@
     dmgMul = damageMul(p);
     roundCoins = 0;
     durability = 100;
-    poi.active = false; poi.pointerId = null;
+    resetPoi();
     updateHud();
     updatePicker();
     // ボタンのタップがそのままポイ操作にならないよう少し待つ
@@ -958,8 +982,7 @@
 
   // ポイが破れた → 選択中のポイを自動で買って続行
   function poiBroken() {
-    poi.active = false;
-    canvas.classList.remove('holding');
+    resetPoi();
     const net = roundCoins - price;
     popups.push({ x: W / 2, y: H / 2 + 60, text: `このポイの収支 ${net >= 0 ? '+' : ''}${net}`, life: 1.8, small: true, color: net >= 0 ? '#ffd32a' : '#fff' });
     const p = affordable(selPrice);
@@ -972,8 +995,7 @@
   function finishGame(broke) {
     inGame = false;
     state = 'over';
-    poi.active = false;
-    canvas.classList.remove('holding');
+    resetPoi();
     showInGameUi(false);
     pauseScreen.classList.add('hidden');
     let best = loadBest();
@@ -1012,8 +1034,7 @@
     if (!inGame || state === 'paused') return;
     stateBeforePause = state === 'ending' ? 'ending' : 'playing';
     state = 'paused';
-    poi.active = false; poi.pointerId = null;
-    canvas.classList.remove('holding');
+    resetPoi();
     showInGameUi(false);
     updateSettings();
     pauseScreen.classList.remove('hidden');
@@ -1062,27 +1083,64 @@
     const rect = canvas.getBoundingClientRect();
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   }
-  function pressStart(e, id) {
-    if (state !== 'playing' || poi.active) return;
-    const p = localPos(e);
-    poi.active = true;
-    poi.pointerId = id;
-    poi.x = p.x; poi.y = p.y;
-    canvas.classList.add('holding');
-    sfx.dip();
-  }
-  function pressMove(e, id) {
-    if (!poi.active || poi.pointerId !== id) return;
-    const p = localPos(e);
-    poi.x = p.x; poi.y = p.y;
-  }
-  function pressEnd(e, id, cancelled) {
-    if (!poi.active || poi.pointerId !== id) return;
-    if (e) { const p = localPos(e); poi.x = p.x; poi.y = p.y; }
-    poi.active = false;
+  // 押す → 長押し待ち(HOLD_MS) → ポイ表示 / 動かす → 追従 / 離す → すくう
+  // 長押し前に離す → 何もしない / キャンセル場所(画面下のアイコン)で離す → すくわずに消す
+  function resetPoi() {
+    clearTimeout(poi.holdTimer);
+    poi.active = poi.pending = poi.overCancel = false;
     poi.pointerId = null;
     canvas.classList.remove('holding');
-    if (!cancelled) scoop(poi.x, poi.y);
+    poiPicker.classList.remove('cancelMode', 'overCancel');
+  }
+  function pressStart(e, id) {
+    if (state !== 'playing' || poi.active || poi.pending) return;
+    const p = localPos(e);
+    poi.pending = true;
+    poi.pointerId = id;
+    poi.x = p.x; poi.y = p.y;
+    poi.holdStart = performance.now();
+    poi.holdTimer = setTimeout(() => {
+      if (!poi.pending || state !== 'playing') return;
+      poi.pending = false;
+      poi.active = true;
+      canvas.classList.add('holding');
+      closePalette();
+      poiPicker.classList.add('cancelMode');
+      sfx.dip();
+      vibrate(10);
+    }, HOLD_MS);
+  }
+  function overCancelZone(e) {
+    const r = poiBtn.getBoundingClientRect();
+    const m = 16; // 少し広めに判定
+    return e.clientX >= r.left - m && e.clientX <= r.right + m && e.clientY >= r.top - m && e.clientY <= r.bottom + m;
+  }
+  function pressMove(e, id) {
+    if (!(poi.active || poi.pending) || poi.pointerId !== id) return;
+    const p = localPos(e);
+    poi.x = p.x; poi.y = p.y;
+    if (poi.active) {
+      poi.overCancel = overCancelZone(e);
+      poiPicker.classList.toggle('overCancel', poi.overCancel);
+    }
+  }
+  function pressEnd(e, id, cancelled) {
+    if (!(poi.active || poi.pending) || poi.pointerId !== id) return;
+    const wasActive = poi.active;
+    if (e) {
+      const p = localPos(e); poi.x = p.x; poi.y = p.y;
+      if (wasActive) poi.overCancel = overCancelZone(e);
+    }
+    const dropOnCancel = poi.overCancel;
+    const x = poi.x, y = poi.y;
+    resetPoi();
+    if (!wasActive || cancelled) return; // 長押し前に離した
+    if (dropOnCancel) {
+      popups.push({ x, y: y - 30, text: 'キャンセル', life: 0.8, small: true });
+      sfx.click();
+      return;
+    }
+    scoop(x, y);
   }
 
   if (window.PointerEvent) {
