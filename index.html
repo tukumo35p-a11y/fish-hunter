@@ -181,6 +181,7 @@
   const FISH_COUNT = 14;
   const POI_BASE_RADIUS = 55;  // ポイの半径(画面サイズに応じて拡縮)
   const SCOOP_WEAR = 3;        // すくうたびに必ず減る耐久度(空振りでも水で弱る)
+  const MISS_MUL = 2;          // からぶりの時はダメージ2倍
 
   // コイン
   const START_COINS = 1000;
@@ -309,7 +310,7 @@
         fleeing = true;
       }
     }
-    f.boost += ((fleeing ? 1 + 0.7 * t.shy : 1) - f.boost) * Math.min(1, dt * 4);
+    f.boost += ((fleeing ? 1 + 1.6 * t.shy : 1) - f.boost) * Math.min(1, dt * 8);
     // 画面端に近づいたら中央方向へ向きを変える
     const margin = rx * 1.5;
     const top = topMargin() + rx * 0.6;
@@ -325,7 +326,7 @@
     // なめらかに旋回
     let diff = f.targetAngle - f.angle;
     diff = Math.atan2(Math.sin(diff), Math.cos(diff));
-    const turnRate = 1.2 + t.speed / 80;
+    const turnRate = (1.2 + t.speed / 80) * (fleeing ? 2 : 1); // 逃げる時は素早く向きを変える
     f.angle += Math.max(-turnRate * dt, Math.min(turnRate * dt, diff));
 
     const sp = t.speed * f.speedMul * f.boost * scale;
@@ -568,6 +569,7 @@
     roundCoins += gotCoins;
     coins += gotCoins;
     saveCoins();
+    if (caught.length === 0) damage *= MISS_MUL;
     damage = Math.max(1, Math.round(damage * dmgMul));
     durability = Math.max(0, durability - damage);
 
