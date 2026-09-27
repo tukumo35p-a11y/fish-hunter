@@ -168,7 +168,7 @@
 
 <div id="poiPicker" hidden>
   <div id="palette" hidden>
-    <div class="head">次のポイを選ぶ</div>
+    <div class="head" id="paletteHead">次のポイを選ぶ</div>
     <div class="row" id="paletteRow"></div>
   </div>
   <button id="poiBtn" aria-label="ポイを変更(長押し・右クリック)"><span id="poiBtnIcon"></span><span id="poiBtnPrice"></span></button>
@@ -252,7 +252,7 @@
     { name: 'アジ',     size: 21, speed: 120, points: 60,  coins: 8,  damage: 10, color: '#f5b041', belly: '#fad7a0', weight: 3,   shape: 'normal', shy: 0.8, tier: 1 },
     { name: 'デメキン', size: 17, speed: 95,  points: 80,  coins: 10, damage: 11, color: '#2d3436', belly: '#636e72', weight: 2,   shape: 'round',  shy: 0.5, bigEyes: true, tier: 1 },
     { name: 'キンギョ', size: 13, speed: 190, points: 100, coins: 12, damage: 13, color: '#ec407a', belly: '#f8bbd0', weight: 2,   shape: 'slim',   shy: 1.0, tier: 2 },
-    { name: '金のキンギョ', size: 15, speed: 210, points: 500, coins: 60, damage: 14, color: '#f1c40f', belly: '#fff3b0', weight: 0.35, shape: 'slim', shy: 1.2, rare: true, tier: 3 },
+    { name: '金のキンギョ', size: 15, speed: 210, points: 500, coins: 60, damage: 14, color: '#f1c40f', belly: '#fff3b0', weight: 0.9, shape: 'slim', shy: 1.2, rare: true, tier: 3 },
   ];
 
   // ===== 要素 =====
@@ -848,13 +848,20 @@
       paletteRow.appendChild(d);
     }
   }
+  // 耐久度100%(まだ使っていない)ポイは、代金を返してすぐ別のポイに交換できる
+  function canSwap() {
+    return inGame && durability >= 100 && (state === 'playing' || state === 'wait');
+  }
   function updatePicker() {
     document.getElementById('poiBtnIcon').innerHTML = poiSvg(poiColor(selPrice));
     document.getElementById('poiBtnPrice').textContent = '🪙' + selPrice;
+    const swap = canSwap();
+    const budget = swap ? coins + price : coins;
+    document.getElementById('paletteHead').textContent = swap ? 'ポイを交換(未使用なので今すぐ)' : '次のポイを選ぶ';
     for (const d of paletteRow.children) {
       const p = Number(d.dataset.price);
       d.classList.toggle('sel', p === selPrice);
-      d.classList.toggle('cant', p > coins);
+      d.classList.toggle('cant', p > budget);
     }
   }
   function openPalette() {
@@ -880,8 +887,15 @@
     const changed = p !== selPrice;
     selPrice = p;
     try { localStorage.setItem(SEL_KEY, String(p)); } catch (e) {}
-    updatePicker();
     closePalette();
+    if (canSwap() && p !== price && coins + price >= p) {
+      // 未使用のポイを返品して、選んだポイに今すぐ交換
+      coins += price;
+      buyPoi(p);
+      popups.push({ x: W / 2, y: H - 150, text: `ポイを交換 🪙${p}`, life: 1.3, color: poiColor(p) });
+      return;
+    }
+    updatePicker();
     sfx.click();
     if (changed && inGame) popups.push({ x: W / 2, y: H - 150, text: `次のポイ:🪙${p}`, life: 1.3, color: poiColor(p) });
   }
