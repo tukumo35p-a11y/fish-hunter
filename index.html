@@ -27,7 +27,7 @@
     font-weight: bold;
     font-size: clamp(16px, 4.2vw, 24px);
     text-shadow: 0 2px 4px rgba(0,0,0,.6);
-    z-index: 2;
+    z-index: 4;
   }
   #hud .label { font-size: .7em; opacity: .85; margin-right: 6px; }
   .poiInfo { display: flex; align-items: center; flex: 1; min-width: 0; max-width: 360px; }
@@ -57,7 +57,7 @@
     display: flex; align-items: center; justify-content: center;
     background: rgba(4, 22, 40, .6);
     z-index: 3;
-    padding: 16px;
+    padding: calc(60px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
   }
   .overlay.hidden { display: none; }
   .panel {
@@ -143,10 +143,16 @@
 
 <div id="startScreen" class="overlay">
   <div class="panel">
-    <h1>🎣 フィッシュハンター</h1>
-    <p>長押しでポイを出し、魚の上で<b>離す</b>とすくえます。<br>
-       魚は<b>ポイから逃げる</b>ので素早く!<br>
-       高いポイほど破れにくい。コインが尽きたら終わり。</p>
+    <div id="titleBlock">
+      <h1>🎣 フィッシュハンター</h1>
+      <p>長押しでポイを出し、魚の上で<b>離す</b>とすくえます。<br>
+         魚は<b>ポイから逃げる</b>ので素早く!<br>
+         高いポイほど破れにくい。コインが尽きたら終わり。</p>
+    </div>
+    <div id="roundBlock" hidden>
+      <h2>ポイが破れました</h2>
+      <div class="earned" id="earnedCoins"></div>
+    </div>
     <div class="wallet">手持ち 🪙<span id="walletCoins">0</span></div>
     <div class="shop">
       <h3>ポイを買う</h3>
@@ -160,28 +166,21 @@
       </div>
     </div>
     <button id="startBtn">買ってスタート</button>
+    <button id="quitBtn" class="sub" hidden>ここでやめる(スコア確定)</button>
     <ul class="legend" id="legend"></ul>
   </div>
 </div>
 
 <div id="endScreen" class="overlay hidden">
   <div class="panel">
-    <h2>ポイが破れました</h2>
-    <p style="margin-bottom:0">あなたのスコア</p>
-    <div class="final" id="finalScore">0</div>
+    <h2 id="endTitle">ゲーム終了</h2>
+    <div id="scoreBlock">
+      <p style="margin-bottom:0">あなたのスコア</p>
+      <div class="final" id="finalScore">0</div>
+    </div>
     <div class="best" id="bestScore"></div>
-    <div class="earned" id="earnedCoins"></div>
     <div class="wallet" id="endWallet"></div>
-    <button id="retryBtn">もう一回</button>
-  </div>
-</div>
-
-<div id="brokeScreen" class="overlay hidden">
-  <div class="panel">
-    <h2>コインがなくなりました</h2>
-    <p>ポイが買えないので、ゲーム終了です。</p>
-    <div class="best" id="brokeBest"></div>
-    <button id="resetBtn">🪙1000で最初から</button>
+    <button id="retryBtn">新しいゲーム</button>
   </div>
 </div>
 
@@ -239,13 +238,17 @@
   const strengthLabel = document.getElementById('strengthLabel');
   const strengthBar = document.getElementById('strengthBar');
   const startBtn = document.getElementById('startBtn');
-  const brokeScreen = document.getElementById('brokeScreen');
+  const quitBtn = document.getElementById('quitBtn');
+  const titleBlock = document.getElementById('titleBlock');
+  const roundBlock = document.getElementById('roundBlock');
+  const legendEl = document.getElementById('legend');
 
   let W = 0, H = 0, dpr = 1, scale = 1;
   let fishes = [], splashes = [], popups = [], bubbles = [];
   let durability = 100, score = 0;
   let coins = loadCoins(), price = 50, roundCoins = 0, dmgMul = 1;
-  let state = 'title'; // title | wait | playing | ending | over
+  let inGame = false; // 最初のポイを買ってからコインが尽きる(やめる)までが1ゲーム
+  let state = 'title'; // title | wait | playing | ending | between(次のポイ選択中) | over
   let endTimer = 0;
   let lastTime = performance.now();
 
@@ -574,7 +577,7 @@
       gotCoins += f.type.coins;
       popups.push({ x: f.x, y: f.y, text: `+${f.type.points} 🪙${f.type.coins}`, life: 1, color: f.type.rare ? '#ffd32a' : null });
       if (f.type.rare) popups.push({ x: f.x, y: f.y - 34, text: '✨大当たり!', life: 1.4, color: '#ffd32a' });
-      setTimeout(() => { if (state === 'playing' || state === 'ending') fishes.push(createFish(true)); }, 800);
+      setTimeout(() => { if (inGame) fishes.push(createFish(true)); }, 800);
     }
     // 複数匹まとめてすくうとボーナス
     if (caught.length >= 2) {
@@ -782,60 +785,80 @@
     startBtn.disabled = coins < PRICE_MIN;
   }
 
-  function showShop() {
-    endScreen.classList.add('hidden');
-    if (coins < PRICE_MIN) { sfx.broke(); showBroke(); return; }
-    sfx.click();
+  // ポイ選択画面:タイトル(新しいゲーム)/ポイが破れた後(続き)の2通り
+  function showShop(next) {
+    titleBlock.hidden = next;
+    roundBlock.hidden = !next;
+    legendEl.hidden = next;
+    quitBtn.hidden = !next;
+    startBtn.textContent = next ? '次のポイを買う' : '買ってスタート';
     updateShop();
+    endScreen.classList.add('hidden');
     startScreen.classList.remove('hidden');
   }
 
+  function showTitle() {
+    state = 'title';
+    if (coins < PRICE_MIN) { showBroke(); return; }
+    showShop(false);
+  }
+
+  // 起動時にコインがない場合
   function showBroke() {
     state = 'over';
-    let best = 0;
-    try { best = Number(localStorage.getItem('fishHunterPoiBest') || 0); } catch (e) {}
-    document.getElementById('brokeBest').textContent = 'ハイスコア:' + best;
+    document.getElementById('endTitle').textContent = 'コインがなくなりました';
+    document.getElementById('scoreBlock').hidden = true;
+    bestScoreEl.textContent = 'ハイスコア:' + loadBest();
+    document.getElementById('endWallet').textContent = '';
+    document.getElementById('retryBtn').textContent = '🪙1000で最初から';
     startScreen.classList.add('hidden');
-    endScreen.classList.add('hidden');
-    brokeScreen.classList.remove('hidden');
+    endScreen.classList.remove('hidden');
   }
 
-  function resetCoins() {
-    coins = START_COINS;
-    saveCoins();
-    price = 50;
-    brokeScreen.classList.add('hidden');
-    updateHud();
-    showShop();
+  function loadBest() {
+    try { return Number(localStorage.getItem('fishHunterPoiBest') || 0); } catch (e) { return 0; }
   }
 
-  function startGame() {
-    if (coins < PRICE_MIN) { showBroke(); return; }
+  function buyPoi() {
+    if (coins < PRICE_MIN) return;
     updateShop();
+    if (!inGame) {
+      // 新しいゲーム
+      inGame = true;
+      score = 0;
+      populate();
+    }
     coins -= price;
     sfx.coin();
     saveCoins();
     dmgMul = damageMul(price);
     roundCoins = 0;
     durability = 100;
-    score = 0;
     splashes = []; popups = [];
     poi.active = false; poi.pointerId = null;
-    populate();
     updateHud();
     startScreen.classList.add('hidden');
-    endScreen.classList.add('hidden');
     // ボタンのタップがそのままポイ操作にならないよう少し待つ
     state = 'wait';
     setTimeout(() => { state = 'playing'; }, 150);
   }
 
-  function gameOver() {
-    state = 'over';
+  function poiBroken() {
+    state = 'between';
     poi.active = false;
     canvas.classList.remove('holding');
-    let best = 0;
-    try { best = Number(localStorage.getItem('fishHunterPoiBest') || 0); } catch (e) {}
+    const net = roundCoins - price;
+    document.getElementById('earnedCoins').innerHTML =
+      `もらったコイン 🪙${roundCoins}<br><small>ポイ代 ${price} → 収支 ${net >= 0 ? '+' : ''}${net}</small>`;
+    if (coins < PRICE_MIN) { sfx.broke(); finishGame(true); }
+    else showShop(true);
+  }
+
+  function finishGame(broke) {
+    inGame = false;
+    state = 'over';
+    poi.active = false;
+    let best = loadBest();
     if (score > best) {
       best = score;
       try { localStorage.setItem('fishHunterPoiBest', String(best)); } catch (e) {}
@@ -843,13 +866,28 @@
     } else {
       bestScoreEl.textContent = 'ハイスコア:' + best;
     }
+    document.getElementById('endTitle').textContent = broke ? 'コインがなくなりました' : 'ゲーム終了';
+    document.getElementById('scoreBlock').hidden = false;
     finalScoreEl.textContent = score;
-    const net = roundCoins - price;
-    document.getElementById('earnedCoins').innerHTML =
-      `もらったコイン 🪙${roundCoins}<br><small>ポイ代 ${price} → 収支 ${net >= 0 ? '+' : ''}${net}</small>`;
-    document.getElementById('endWallet').textContent = `手持ち 🪙${coins}`;
-    document.getElementById('retryBtn').textContent = coins < PRICE_MIN ? '次へ' : 'もう一回';
+    document.getElementById('endWallet').textContent = broke ? '' : `手持ち 🪙${coins}`;
+    document.getElementById('retryBtn').textContent = broke ? '🪙1000で最初から' : '新しいゲーム';
+    startScreen.classList.add('hidden');
     endScreen.classList.remove('hidden');
+  }
+
+  function retry() {
+    if (coins < PRICE_MIN) {
+      coins = START_COINS;
+      saveCoins();
+      price = 50;
+      sfx.coin();
+    } else {
+      sfx.click();
+    }
+    score = 0;
+    durability = 100;
+    updateHud();
+    showTitle();
   }
 
   function loop(now) {
@@ -867,7 +905,7 @@
 
     if (state === 'ending') {
       endTimer -= dt;
-      if (endTimer <= 0) gameOver();
+      if (endTimer <= 0) poiBroken();
     }
     requestAnimationFrame(loop);
   }
@@ -928,9 +966,9 @@
   document.addEventListener('contextmenu', (e) => e.preventDefault());
   document.addEventListener('dblclick', (e) => e.preventDefault());
 
-  startBtn.addEventListener('click', startGame);
-  document.getElementById('retryBtn').addEventListener('click', showShop);
-  document.getElementById('resetBtn').addEventListener('click', () => { sfx.coin(); resetCoins(); });
+  startBtn.addEventListener('click', buyPoi);
+  quitBtn.addEventListener('click', () => { sfx.click(); finishGame(false); });
+  document.getElementById('retryBtn').addEventListener('click', retry);
   priceDownBtn.addEventListener('click', () => { price -= PRICE_STEP; sfx.click(); updateShop(); });
   priceUpBtn.addEventListener('click', () => { price += PRICE_STEP; sfx.click(); updateShop(); });
   const muteBtn = document.getElementById('muteBtn');
@@ -971,7 +1009,7 @@
   buildLegend();
   populate();
   updateHud();
-  if (coins < PRICE_MIN) showBroke(); else updateShop();
+  showTitle();
   requestAnimationFrame(loop);
 })();
 </script>
