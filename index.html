@@ -262,6 +262,7 @@
       <li>ゲージが満タンで<b>20秒間のフィーバータイム</b>に突入</li>
       <li>金のカニ・金のデメキン・金のキンギョだけが超高速で出現</li>
       <li>ポイは無料の金のポイ。からぶりしても減らない</li>
+      <li>フィーバー中は<b>コインはもらえない</b>(スコアだけ入る)</li>
       <li>終わるとゲージは0に。スコアとコインはそのままで、選んでいるポイを買って再開</li>
     </ul>
     <h3>コイン・スコア</h3>
@@ -326,7 +327,7 @@
   const POI_PRICES = [10, 40, 70, 100]; // 買えるポイ(緑・青・銀・金)
   const PRICE_MIN = POI_PRICES[0];
   // フィーバータイム:コンボでフィーバーポイントがたまり、FEVER_MAXで20秒間突入
-  const FEVER_MAX = 100, FEVER_TIME = 20, FEVER_FISH = 8; // FEVER_FISH = カニ3+デメキン3+キンギョ2
+  const FEVER_MAX = 150, FEVER_TIME = 20, FEVER_FISH = 8; // FEVER_FISH = カニ3+デメキン3+キンギョ2
   const COINS_KEY = 'fishHunterCoins2'; // 初期コイン100の新ルール(旧データは引き継がない)
   // 金のキンギョ:定期的に訪れ、しばらくすると去る
   const GOLD_VISIT_MIN = 20, GOLD_VISIT_RAND = 15; // 次に来るまでの秒数(20〜35秒)
@@ -357,8 +358,8 @@
     { name: 'キンギョ', size: 13, speed: 190, points: 100, coins: 24, damage: 13, color: '#ec407a', belly: '#f8bbd0', weight: 2,   shape: 'slim',   shy: 1.0, tier: 2 },
     { name: '金のキンギョ', size: 15, speed: 420, points: 500, coins: 120, damage: 14, color: '#f1c40f', belly: '#fff3b0', weight: 0.9, shape: 'slim', shy: 1.2, rare: true, tier: 3 },
     // フィーバータイム限定(weight 0 = 普段は出ない)
-    { name: '金のカニ',     size: 16, speed: 520, points: 600, coins: 150, damage: 0, color: '#f1c40f', belly: '#fff3b0', weight: 0, shape: 'crab',  shy: 0,   fever: true, glow: true, straight: true, tier: 3 },
-    { name: '金のデメキン', size: 17, speed: 380, points: 400, coins: 100, damage: 0, color: '#f1c40f', belly: '#fff3b0', weight: 0, shape: 'round', shy: 1.0, fever: true, glow: true, bigEyes: true, tier: 3 },
+    { name: '金のカニ',     size: 16, speed: 520, points: 600, coins: 0, damage: 0, color: '#f1c40f', belly: '#fff3b0', weight: 0, shape: 'crab',  shy: 0,   fever: true, glow: true, straight: true, tier: 3 },
+    { name: '金のデメキン', size: 17, speed: 380, points: 400, coins: 0, damage: 0, color: '#f1c40f', belly: '#fff3b0', weight: 0, shape: 'round', shy: 1.0, fever: true, glow: true, bigEyes: true, tier: 3 },
   ];
 
   // ===== 要素 =====
@@ -815,8 +816,9 @@
     for (const f of caught) {
       damage += f.type.damage;
       gained += f.type.points;
-      gotCoins += f.type.coins;
-      popups.push({ x: f.x, y: f.y, text: `+${f.type.points} 🪙${f.type.coins}`, life: 1, color: f.type.rare ? '#ffd32a' : null });
+      const c = fever ? 0 : f.type.coins; // フィーバー中はコインなし(スコアのみ)
+      gotCoins += c;
+      popups.push({ x: f.x, y: f.y, text: c ? `+${f.type.points} 🪙${c}` : `+${f.type.points}`, life: 1, color: f.type.rare || f.type.fever ? '#ffd32a' : null });
       if (f.type.rare) popups.push({ x: f.x, y: f.y - 34, text: '✨大当たり!', life: 1.4, color: '#ffd32a' });
       if (!fever) setTimeout(() => { if (inGame && !fever) fishes.push(createFish(true)); }, 800);
     }
@@ -1556,7 +1558,7 @@
       const speedTxt = t.fever ? '超高速' + (t.straight ? '・直進' : '') : speed;
       const need = t.fever ? '<span class="need">🔥フィーバータイム限定</span>'
         : `<span class="need">${poiSvg(poiColor(POI_PRICES[t.tier]))}${TIER_NAMES[t.tier]}${t.tier < 3 ? '以上' : ''}のポイ</span>`;
-      span.innerHTML = `${t.rare || t.fever ? '✨' : ''}${t.name}(${speedTxt}):${t.points}点 🪙${t.coins}<br>${need}`;
+      span.innerHTML = `${t.rare || t.fever ? '✨' : ''}${t.name}(${speedTxt}):${t.points}点 ${t.fever ? '' : '🪙' + t.coins}<br>${need}`;
       li.appendChild(span);
       ul.appendChild(li);
     }
