@@ -181,7 +181,7 @@
   const FISH_COUNT = 14;
   const POI_BASE_RADIUS = 55;  // ポイの半径(画面サイズに応じて拡縮)
   const SCOOP_WEAR = 3;        // すくうたびに必ず減る耐久度(空振りでも水で弱る)
-  const MISS_MUL = 2;          // からぶりの時はダメージ2倍
+  const MISS_DAMAGE = 30;      // からぶりの時はどのポイでも一律30%
 
   // コイン
   const START_COINS = 1000;
@@ -569,8 +569,7 @@
     roundCoins += gotCoins;
     coins += gotCoins;
     saveCoins();
-    if (caught.length === 0) damage *= MISS_MUL;
-    damage = Math.max(1, Math.round(damage * dmgMul));
+    damage = caught.length === 0 ? MISS_DAMAGE : Math.max(1, Math.round(damage * dmgMul));
     durability = Math.max(0, durability - damage);
 
     splashes.push({ x, y, r, life: 1 });
