@@ -242,10 +242,9 @@
   const GOLD_VISIT_MIN = 20, GOLD_VISIT_RAND = 15; // 次に来るまでの秒数(20〜35秒)
   const GOLD_STAY_MIN = 10, GOLD_STAY_RAND = 5;    // 滞在する秒数(10〜15秒)
   const SEL_KEY = 'fishHunterPoiPrice'; // 選択中のポイ
-  // ポイの値段→ダメージ倍率(高いポイほど破れにくい)
-  // どのポイも、ミスなしなら値段の約1.8倍、1回ミスでもプラス、2回ミスでマイナスになるよう調整
-  const DAMAGE_MUL = { 10: 1.4, 40: 0.55, 70: 0.36, 100: 0.30 };
-  function damageMul(price) { return DAMAGE_MUL[price] || 1; }
+  // ポイの値段→ダメージ倍率(高いポイほど破れにくい。50コインで1倍)
+  // 魚のコインは、どのポイでもミスなしなら値段の約1.8倍、1回ミスでもプラス、2回ミスでほぼマイナスになるよう調整
+  function damageMul(price) { return Math.pow(50 / price, 0.8); }
   // ポイの値段→格(0:緑 1:青 2:銀 3:金)
   const TIER_NAMES = ['緑', '青', '銀', '金'];
   function poiTier(price) { return price >= 100 ? 3 : price >= 70 ? 2 : price >= 40 ? 1 : 0; }
@@ -261,10 +260,10 @@
   // damage=すくった時のポイへのダメージ, shy=ポイから逃げる度合い(0〜),
   // tier=すくうのに必要なポイの格(0:緑 1:青 2:銀 3:金)。格上の魚をすくうとポイが即破れる
   const FISH_TYPES = [
-    { name: 'マンボウ', size: 46, speed: 35,  points: 10,  coins: 3,  damage: 16, color: '#5dade2', belly: '#aed6f1', weight: 4,   shape: 'round',  shy: 0.3, tier: 0 },
-    { name: 'タイ',     size: 32, speed: 70,  points: 30,  coins: 5,  damage: 9,  color: '#58d68d', belly: '#abebc6', weight: 4,   shape: 'normal', shy: 0.6, tier: 0 },
-    { name: 'アジ',     size: 21, speed: 120, points: 60,  coins: 8,  damage: 10, color: '#f5b041', belly: '#fad7a0', weight: 3,   shape: 'normal', shy: 0.8, tier: 1 },
-    { name: 'デメキン', size: 17, speed: 95,  points: 80,  coins: 10, damage: 11, color: '#2d3436', belly: '#636e72', weight: 2,   shape: 'round',  shy: 0.5, bigEyes: true, tier: 1 },
+    { name: 'マンボウ', size: 46, speed: 35,  points: 10,  coins: 10, damage: 16, color: '#5dade2', belly: '#aed6f1', weight: 4,   shape: 'round',  shy: 0.3, tier: 0 },
+    { name: 'タイ',     size: 32, speed: 70,  points: 30,  coins: 12,  damage: 9,  color: '#58d68d', belly: '#abebc6', weight: 4,   shape: 'normal', shy: 0.6, tier: 0 },
+    { name: 'アジ',     size: 21, speed: 120, points: 60,  coins: 15,  damage: 10, color: '#f5b041', belly: '#fad7a0', weight: 3,   shape: 'normal', shy: 0.8, tier: 1 },
+    { name: 'デメキン', size: 17, speed: 95,  points: 80,  coins: 21, damage: 11, color: '#2d3436', belly: '#636e72', weight: 2,   shape: 'round',  shy: 0.5, bigEyes: true, tier: 1 },
     { name: 'キンギョ', size: 13, speed: 190, points: 100, coins: 24, damage: 13, color: '#ec407a', belly: '#f8bbd0', weight: 2,   shape: 'slim',   shy: 1.0, tier: 2 },
     { name: '金のキンギョ', size: 15, speed: 420, points: 500, coins: 120, damage: 14, color: '#f1c40f', belly: '#fff3b0', weight: 0.9, shape: 'slim', shy: 1.2, rare: true, tier: 3 },
   ];
