@@ -190,7 +190,8 @@
        やめる時は画面下の✕まで運んで離す。<br>
        魚は<b>ポイから逃げる</b>ので素早く!<br>
        ポイが破れたら同じポイを自動で買って続行。<br>
-       魚をすくって<b>コインを増やそう</b>。ミスが少ないほど稼げる!<br>
+       魚をすくって<b>コインを増やそう</b>。<br>
+       <b>からぶりすると一発で破れる!</b><br>
        コインが尽きたら終わり。</p>
     <div class="wallet">手持ち 🪙<span id="walletCoins">0</span></div>
     <div class="poiNote">使うポイ:<span id="titlePoi"></span><br>
@@ -231,7 +232,7 @@
   const FISH_COUNT = 14;
   const POI_BASE_RADIUS = 44;  // ポイの半径(画面サイズに応じて拡縮)
   const SCOOP_WEAR = 3;        // すくうたびに必ず減る耐久度(空振りでも水で弱る)
-  const MISS_DAMAGE = 30;      // からぶりの時はどのポイでも一律30%
+  const MISS_DAMAGE = 100;     // からぶりすると、どのポイでも一発で破れる
 
   // コイン
   const START_COINS = 100;
@@ -677,7 +678,7 @@
       gained += bonus;
       popups.push({ x, y: y - r - 10, text: `${caught.length}匹まとめて! +${bonus}`, life: 1.3, color: '#ffd32a' });
     } else if (caught.length === 0) {
-      popups.push({ x, y, text: 'からぶり', life: 0.8, small: true });
+      popups.push({ x, y, text: 'からぶり!', life: 1.2, color: '#ff7675' });
     }
     score += gained;
     roundCoins += gotCoins;
@@ -687,7 +688,7 @@
     durability = Math.max(0, durability - damage);
 
     splashes.push({ x, y, r, life: 1 });
-    popups.push({ x, y: y + r + 16, text: `ポイ -${damage}%`, life: 0.9, small: true, color: '#ff7675' });
+    if (caught.length) popups.push({ x, y: y + r + 16, text: `ポイ -${damage}%`, life: 0.9, small: true, color: '#ff7675' });
     gaugeEl.classList.remove('shake');
     void gaugeEl.offsetWidth; // アニメーションを再生し直す
     gaugeEl.classList.add('shake');
