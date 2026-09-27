@@ -124,6 +124,29 @@
   .strengthBar div { height: 100%; background: linear-gradient(90deg, #f39c12, #27ae60); transition: width .2s; }
   .earned { font-size: 18px; font-weight: bold; color: #b7791f; margin-bottom: 4px; }
   .earned small { font-size: 14px; color: #678; }
+
+  /* 次のポイ選択:画面下の小さなパネル。魚が見えるよう背景は暗くしない */
+  #startScreen.compact { align-items: flex-end; background: transparent; pointer-events: none;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+  #startScreen.compact .panel { pointer-events: auto; padding: 10px 14px 12px; border-radius: 16px;
+    background: rgba(255,255,255,.9); box-shadow: 0 6px 24px rgba(0,0,0,.35); }
+  #startScreen.compact h2 { font-size: 17px; margin: 0 0 2px; }
+  #startScreen.compact .earned { font-size: 14px; margin: 0; }
+  #startScreen.compact .earned br { display: none; }
+  #startScreen.compact .earned small { font-size: 12px; margin-left: 6px; }
+  #startScreen.compact .wallet { font-size: 14px; margin: 2px 0 6px; }
+  #startScreen.compact .shop { padding: 6px 10px 8px; margin-bottom: 8px; }
+  #startScreen.compact .shop h3 { display: none; }
+  #startScreen.compact .stepper { gap: 10px; }
+  #startScreen.compact .stepper button { width: 44px; min-height: 44px; font-size: 22px; }
+  #startScreen.compact .price { font-size: 22px; min-width: 3.6em; }
+  #startScreen.compact .strength { font-size: 12px; margin-top: 4px; }
+  #startScreen.compact .strengthBar { height: 6px; margin-top: 4px; }
+  #startScreen.compact .actions { display: flex; gap: 8px; }
+  #startScreen.compact #startBtn { flex: 1; min-height: 50px; font-size: 18px; }
+  #startScreen.compact #quitBtn { flex: 0 0 34%; min-height: 50px; font-size: 14px; margin-top: 0; }
+  /* パネルと重ならないよう音ボタンを上へ */
+  body.sheet #muteBtn { bottom: auto; top: calc(64px + env(safe-area-inset-top)); }
 </style>
 <canvas id="game"></canvas>
 
@@ -165,8 +188,10 @@
         <div class="strengthBar"><div id="strengthBar"></div></div>
       </div>
     </div>
-    <button id="startBtn">買ってスタート</button>
-    <button id="quitBtn" class="sub" hidden>ここでやめる(スコア確定)</button>
+    <div class="actions">
+      <button id="startBtn">買ってスタート</button>
+      <button id="quitBtn" class="sub" hidden>ここでやめる</button>
+    </div>
     <ul class="legend" id="legend"></ul>
   </div>
 </div>
@@ -792,6 +817,8 @@
     legendEl.hidden = next;
     quitBtn.hidden = !next;
     startBtn.textContent = next ? '次のポイを買う' : '買ってスタート';
+    startScreen.classList.toggle('compact', next);
+    document.body.classList.toggle('sheet', next);
     updateShop();
     endScreen.classList.add('hidden');
     startScreen.classList.remove('hidden');
@@ -838,6 +865,7 @@
     poi.active = false; poi.pointerId = null;
     updateHud();
     startScreen.classList.add('hidden');
+    document.body.classList.remove('sheet');
     // ボタンのタップがそのままポイ操作にならないよう少し待つ
     state = 'wait';
     setTimeout(() => { state = 'playing'; }, 150);
@@ -872,6 +900,7 @@
     document.getElementById('endWallet').textContent = broke ? '' : `手持ち 🪙${coins}`;
     document.getElementById('retryBtn').textContent = broke ? '🪙1000で最初から' : '新しいゲーム';
     startScreen.classList.add('hidden');
+    document.body.classList.remove('sheet');
     endScreen.classList.remove('hidden');
   }
 
