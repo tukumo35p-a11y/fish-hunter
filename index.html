@@ -236,6 +236,9 @@
   const START_COINS = 1000;
   const PRICE_MIN = 10, PRICE_MAX = 100, PRICE_STEP = 10;
   const COINS_KEY = 'fishHunterCoins';
+  // 金のキンギョ:定期的に訪れ、しばらくすると去る
+  const GOLD_VISIT_MIN = 20, GOLD_VISIT_RAND = 15; // 次に来るまでの秒数(20〜35秒)
+  const GOLD_STAY_MIN = 10, GOLD_STAY_RAND = 5;    // 滞在する秒数(10〜15秒)
   const SEL_KEY = 'fishHunterPoiPrice'; // 選択中のポイ
   // ポイの値段→ダメージ倍率(高いポイほど破れにくい。50コインで1倍)
   function damageMul(price) { return Math.pow(50 / price, 0.8); }
@@ -289,6 +292,7 @@
   let durability = 100, score = 0;
   // price=今使っているポイの値段, selPrice=選択中(次に買う)ポイの値段
   let coins = loadCoins(), price = 50, selPrice = loadSelPrice(), roundCoins = 0, dmgMul = 1;
+  let goldTimer = 8 + Math.random() * 7; // 最初の訪問は早め
   let inGame = false; // 最初のポイを買ってからコインが尽きる(やめる)までが1ゲーム
   let state = 'title'; // title | wait | playing | ending | between(次のポイ選択中) | over
   let endTimer = 0;
@@ -331,8 +335,8 @@
     return FISH_TYPES[0];
   }
 
-  function createFish(fromEdge) {
-    const type = pickType();
+  function createFish(fromEdge, forcedType) {
+    const type = forcedType || pickType();
     const rx = type.size * scale;
     let x, y;
     const top = topMargin() + rx;
@@ -355,12 +359,20 @@
       wiggle: Math.random() * Math.PI * 2,
       boost: 1,
       entering: fromEdge,
+      // レア魚はしばらく泳いだら画面の外へ去っていく
+      stay: type.rare ? GOLD_STAY_MIN + Math.random() * GOLD_STAY_RAND : Infinity,
+      leaving: false,
     };
   }
 
   function updateFish(f, dt) {
     const t = f.type;
     const rx = t.size * scale;
+    f.stay -= dt;
+    if (f.stay <= 0 && !f.leaving) {
+      f.leaving = true;
+      f.exitAngle = f.x < W / 2 ? Math.PI : 0; // 近い方の横から去る
+    }
     f.turnTimer -= dt;
     if (f.turnTimer <= 0) {
       f.targetAngle = f.angle + (Math.random() - 0.5) * Math.PI * 1.2;
@@ -380,7 +392,10 @@
     // 画面端に近づいたら中央方向へ向きを変える
     const margin = rx * 1.5;
     const top = topMargin() + rx * 0.6;
-    if (!f.entering) {
+    if (f.leaving) {
+      f.targetAngle = f.exitAngle;
+      if (f.x < -rx * 3 || f.x > W + rx * 3) f.gone = true;
+    } else if (!f.entering) {
       if (f.x < margin || f.x > W - margin || f.y < top || f.y > H - rx * 0.6) {
         const cx = W / 2 + (Math.random() - 0.5) * W * 0.4;
         const cy = (top + H) / 2 + (Math.random() - 0.5) * H * 0.3;
@@ -401,7 +416,7 @@
     f.wiggle += dt * (4 + t.speed / 25) * f.boost;
 
     // 念のため画面外に出すぎないよう制限
-    if (!f.entering) {
+    if (!f.entering && !f.leaving) {
       f.x = Math.min(Math.max(f.x, -rx), W + rx);
       f.y = Math.min(Math.max(f.y, topMargin()), H + rx * 0.3);
     }
@@ -958,6 +973,7 @@
     inGame = true;
     score = 0;
     populate();
+    goldTimer = 8 + Math.random() * 7;
     splashes = []; popups = [];
     startScreen.classList.add('hidden');
     showInGameUi(true);
@@ -1063,6 +1079,15 @@
     const sdt = state === 'paused' ? 0 : dt; // ポーズ中は時間を止める
     updateBubbles(sdt);
     for (const f of fishes) updateFish(f, sdt);
+    if (fishes.some(f => f.gone)) {
+      fishes = fishes.filter(f => !f.gone);
+      while (fishes.length < FISH_COUNT) fishes.push(createFish(true));
+    }
+    goldTimer -= sdt;
+    if (goldTimer <= 0) {
+      goldTimer = GOLD_VISIT_MIN + Math.random() * GOLD_VISIT_RAND;
+      if (!fishes.some(f => f.type.rare)) fishes.push(createFish(true, FISH_TYPES.find(t => t.rare)));
+    }
 
     drawBackground(now);
     for (const f of fishes) drawFish(f, now);
