@@ -97,56 +97,57 @@
   button.sub:active { box-shadow: 0 2px 0 #065a9e; }
 
   .hudRight { display: flex; align-items: center; gap: 14px; white-space: nowrap; }
-  #muteBtn {
+  .wallet { font-size: 17px; font-weight: bold; color: #b7791f; margin-bottom: 6px; }
+  .poiNote { font-size: 13px; color: #567; margin-bottom: 16px; }
+  .poiNote svg { width: 22px; height: 22px; vertical-align: -6px; }
+
+  /* 画面下中央のポイアイコンと、10段階のポイ選択 */
+  #poiPicker {
+    position: absolute; left: 0; right: 0; z-index: 5;
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    display: flex; flex-direction: column; align-items: center;
+    pointer-events: none;
+  }
+  #poiBtn {
+    pointer-events: auto; touch-action: none;
+    width: 64px; height: 64px; min-height: 64px; padding: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    border-radius: 50%; background: rgba(0,0,0,.35); border: 2px solid rgba(255,255,255,.7);
+    box-shadow: none; font-size: 11px; line-height: 1.1;
+  }
+  #poiBtn:active { transform: scale(.94); box-shadow: none; }
+  #poiBtn svg { width: 34px; height: 34px; }
+  #palette {
+    pointer-events: auto; touch-action: none;
+    width: min(calc(100% - 16px), 520px); margin-bottom: 8px; padding: 6px 6px 4px;
+    background: rgba(255,255,255,.94); border-radius: 14px; box-shadow: 0 6px 20px rgba(0,0,0,.35);
+    color: #123; text-align: center;
+  }
+  #palette .head { font-size: 12px; font-weight: bold; color: #0a3d62; margin-bottom: 2px; }
+  #palette .row { display: flex; gap: 2px; }
+  .poiOpt {
+    flex: 1; min-width: 0; padding: 4px 0 3px; border-radius: 10px;
+    display: flex; flex-direction: column; align-items: center;
+    font-size: 10px; font-weight: bold; color: #345;
+    transition: transform .08s, background-color .08s;
+  }
+  .poiOpt svg { width: 100%; max-width: 36px; height: auto; }
+  .poiOpt.sel { background: #d6ecff; }
+  .poiOpt.hover { background: #ffe8a3; transform: translateY(-5px) scale(1.12); }
+  .poiOpt.cant { opacity: .35; }
+
+  /* ポーズ */
+  #pauseBtn {
     position: absolute; z-index: 5;
-    right: calc(12px + env(safe-area-inset-right)); bottom: calc(24px + env(safe-area-inset-bottom));
-    width: 44px; min-height: 44px; height: 44px; padding: 0;
-    font-size: 20px; line-height: 1;
-    background: rgba(0,0,0,.3); border: 2px solid rgba(255,255,255,.6);
-    border-radius: 50%; box-shadow: none;
+    left: calc(12px + env(safe-area-inset-left)); bottom: calc(20px + env(safe-area-inset-bottom));
+    width: 46px; height: 46px; min-height: 46px; padding: 0;
+    font-size: 18px; line-height: 1; border-radius: 50%;
+    background: rgba(0,0,0,.35); border: 2px solid rgba(255,255,255,.7); box-shadow: none;
   }
-  #muteBtn:active { transform: scale(.92); box-shadow: none; }
-  .wallet { font-size: 17px; font-weight: bold; color: #b7791f; margin-bottom: 14px; }
-
-  /* ポイ購入 */
-  .shop { background: #eef6fb; border-radius: 14px; padding: 12px 14px 14px; margin-bottom: 16px; }
-  .shop h3 { font-size: 15px; color: #0a3d62; margin-bottom: 8px; }
-  .stepper { display: flex; align-items: center; justify-content: center; gap: 14px; }
-  .stepper button {
-    width: 52px; min-height: 52px; font-size: 26px; padding: 0;
-    background: linear-gradient(#74b9ff, #0984e3); box-shadow: 0 4px 0 #065a9e;
-  }
-  .stepper button:active { box-shadow: 0 1px 0 #065a9e; }
-  .price { font-size: 30px; font-weight: bold; color: #0a3d62; min-width: 4.2em; }
-  .strength { margin-top: 10px; font-size: 14px; color: #345; }
-  .swatch { display: inline-block; width: 16px; height: 16px; border-radius: 50%; border: 4px solid; vertical-align: -3px; margin-right: 6px; background: #fff; }
-  .strengthBar { height: 10px; border-radius: 5px; background: #d6e4ee; overflow: hidden; margin: 6px auto 0; max-width: 240px; }
-  .strengthBar div { height: 100%; background: linear-gradient(90deg, #f39c12, #27ae60); transition: width .2s; }
-  .earned { font-size: 18px; font-weight: bold; color: #b7791f; margin-bottom: 4px; }
-  .earned small { font-size: 14px; color: #678; }
-
-  /* 次のポイ選択:画面下の小さなパネル。魚が見えるよう背景は暗くしない */
-  #startScreen.compact { align-items: flex-end; background: transparent; pointer-events: none;
-    padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
-  #startScreen.compact .panel { pointer-events: auto; padding: 10px 14px 12px; border-radius: 16px;
-    background: rgba(255,255,255,.9); box-shadow: 0 6px 24px rgba(0,0,0,.35); }
-  #startScreen.compact h2 { font-size: 17px; margin: 0 0 2px; }
-  #startScreen.compact .earned { font-size: 14px; margin: 0; }
-  #startScreen.compact .earned br { display: none; }
-  #startScreen.compact .earned small { font-size: 12px; margin-left: 6px; }
-  #startScreen.compact .wallet { font-size: 14px; margin: 2px 0 6px; }
-  #startScreen.compact .shop { padding: 6px 10px 8px; margin-bottom: 8px; }
-  #startScreen.compact .shop h3 { display: none; }
-  #startScreen.compact .stepper { gap: 10px; }
-  #startScreen.compact .stepper button { width: 44px; min-height: 44px; font-size: 22px; }
-  #startScreen.compact .price { font-size: 22px; min-width: 3.6em; }
-  #startScreen.compact .strength { font-size: 12px; margin-top: 4px; }
-  #startScreen.compact .strengthBar { height: 6px; margin-top: 4px; }
-  #startScreen.compact .actions { display: flex; gap: 8px; }
-  #startScreen.compact #startBtn { flex: 1; min-height: 50px; font-size: 18px; }
-  #startScreen.compact #quitBtn { flex: 0 0 34%; min-height: 50px; font-size: 14px; margin-top: 0; }
-  /* パネルと重ならないよう音ボタンを上へ */
-  body.sheet #muteBtn { bottom: auto; top: calc(64px + env(safe-area-inset-top)); }
+  #pauseBtn:active { transform: scale(.92); box-shadow: none; }
+  .setting { display: flex; justify-content: space-between; align-items: center; margin: 10px 0; font-size: 16px; font-weight: bold; }
+  .setting button { width: 110px; min-height: 42px; font-size: 16px; background: linear-gradient(#74b9ff, #0984e3); box-shadow: 0 4px 0 #065a9e; }
+  .setting button.off { background: linear-gradient(#b2bec3, #7f8c8d); box-shadow: 0 4px 0 #5d6d6e; }
 </style>
 <canvas id="game"></canvas>
 
@@ -162,37 +163,39 @@
   </div>
 </div>
 
-<button id="muteBtn" aria-label="音のオン・オフ">🔊</button>
+
+<div id="poiPicker" hidden>
+  <div id="palette" hidden>
+    <div class="head">次のポイを選ぶ</div>
+    <div class="row" id="paletteRow"></div>
+  </div>
+  <button id="poiBtn" aria-label="ポイを変更(長押し・右クリック)"><span id="poiBtnIcon"></span><span id="poiBtnPrice"></span></button>
+</div>
+
+<button id="pauseBtn" aria-label="ポーズ" hidden>⏸</button>
 
 <div id="startScreen" class="overlay">
   <div class="panel">
-    <div id="titleBlock">
-      <h1>🎣 フィッシュハンター</h1>
-      <p>長押しでポイを出し、魚の上で<b>離す</b>とすくえます。<br>
-         魚は<b>ポイから逃げる</b>ので素早く!<br>
-         高いポイほど破れにくい。コインが尽きたら終わり。</p>
-    </div>
-    <div id="roundBlock" hidden>
-      <h2>ポイが破れました</h2>
-      <div class="earned" id="earnedCoins"></div>
-    </div>
+    <h1>🎣 フィッシュハンター</h1>
+    <p>長押しでポイを出し、魚の上で<b>離す</b>とすくえます。<br>
+       魚は<b>ポイから逃げる</b>ので素早く!<br>
+       ポイが破れたら同じポイを自動で買って続行。<br>
+       コインが尽きたら終わり。</p>
     <div class="wallet">手持ち 🪙<span id="walletCoins">0</span></div>
-    <div class="shop">
-      <h3>ポイを買う</h3>
-      <div class="stepper">
-        <button id="priceDown" aria-label="安くする">−</button>
-        <div class="price">🪙<span id="price">50</span></div>
-        <button id="priceUp" aria-label="高くする">+</button>
-      </div>
-      <div class="strength"><span id="poiSwatch" class="swatch"></span>強さ:<b id="strengthLabel"></b>
-        <div class="strengthBar"><div id="strengthBar"></div></div>
-      </div>
-    </div>
-    <div class="actions">
-      <button id="startBtn">買ってスタート</button>
-      <button id="quitBtn" class="sub" hidden>ここでやめる</button>
-    </div>
+    <div class="poiNote">使うポイ:<span id="titlePoi"></span><br>
+      画面下のアイコンを長押し(PCは右クリック)で変更</div>
+    <button id="startBtn">スタート</button>
     <ul class="legend" id="legend"></ul>
+  </div>
+</div>
+
+<div id="pauseScreen" class="overlay hidden">
+  <div class="panel">
+    <h2 style="color:#0a3d62">ポーズ</h2>
+    <button id="resumeBtn" style="margin:12px 0 14px">再開</button>
+    <div class="setting"><span>🔊 音</span><button id="soundToggle"></button></div>
+    <div class="setting"><span>📳 振動</span><button id="vibeToggle"></button></div>
+    <button id="quitBtn" class="sub">ゲームを終了(スコア確定)</button>
   </div>
 </div>
 
@@ -257,21 +260,19 @@
   const bestScoreEl = document.getElementById('bestScore');
   const coinsEl = document.getElementById('coins');
   const walletEl = document.getElementById('walletCoins');
-  const priceEl = document.getElementById('price');
-  const priceDownBtn = document.getElementById('priceDown');
-  const priceUpBtn = document.getElementById('priceUp');
-  const strengthLabel = document.getElementById('strengthLabel');
-  const strengthBar = document.getElementById('strengthBar');
   const startBtn = document.getElementById('startBtn');
-  const quitBtn = document.getElementById('quitBtn');
-  const titleBlock = document.getElementById('titleBlock');
-  const roundBlock = document.getElementById('roundBlock');
-  const legendEl = document.getElementById('legend');
+  const poiPicker = document.getElementById('poiPicker');
+  const poiBtn = document.getElementById('poiBtn');
+  const palette = document.getElementById('palette');
+  const paletteRow = document.getElementById('paletteRow');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const pauseScreen = document.getElementById('pauseScreen');
 
   let W = 0, H = 0, dpr = 1, scale = 1;
   let fishes = [], splashes = [], popups = [], bubbles = [];
   let durability = 100, score = 0;
-  let coins = loadCoins(), price = 50, roundCoins = 0, dmgMul = 1;
+  // price=今使っているポイの値段, selPrice=選択中(次に買う)ポイの値段
+  let coins = loadCoins(), price = 50, selPrice = loadSelPrice(), roundCoins = 0, dmgMul = 1;
   let inGame = false; // 最初のポイを買ってからコインが尽きる(やめる)までが1ゲーム
   let state = 'title'; // title | wait | playing | ending | between(次のポイ選択中) | over
   let endTimer = 0;
@@ -639,7 +640,10 @@
     }
   }
 
-  function vibrate(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
+  const VIBE_KEY = 'fishHunterVibe';
+  let vibeOn = true;
+  try { vibeOn = localStorage.getItem(VIBE_KEY) !== '0'; } catch (e) {}
+  function vibrate(p) { if (!vibeOn) return; try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
 
   // ===== 効果音(Web Audioで合成。音声ファイル不要) =====
   const MUTE_KEY = 'fishHunterMuted';
@@ -722,7 +726,6 @@
     broke() { [392, 330, 262].forEach((f, i) => tone(f, 0.35, { type: 'triangle', vol: 0.14, delay: i * 0.22 })); },
   };
 
-  function updateMuteBtn() { document.getElementById('muteBtn').textContent = muted ? '🔇' : '🔊'; }
 
   function drawSplashes(dt) {
     for (let i = splashes.length - 1; i >= 0; i--) {
@@ -788,46 +791,89 @@
   }
   function saveCoins() { try { localStorage.setItem(COINS_KEY, String(coins)); } catch (e) {} }
 
-  function strengthText(p) {
-    if (p <= 20) return 'やぶれやすい';
-    if (p <= 40) return 'ふつう';
-    if (p <= 60) return 'じょうぶ';
-    if (p <= 80) return 'とてもじょうぶ';
-    return 'さいきょう';
+  const SEL_KEY = 'fishHunterPoiPrice';
+  function loadSelPrice() {
+    try {
+      const v = Number(localStorage.getItem(SEL_KEY));
+      if (v >= PRICE_MIN && v <= PRICE_MAX && v % PRICE_STEP === 0) return v;
+    } catch (e) {}
+    return 50;
+  }
+  function loadBest() {
+    try { return Number(localStorage.getItem('fishHunterPoiBest') || 0); } catch (e) { return 0; }
+  }
+  // 手持ちで買える範囲に下げた値段(PRICE_MIN未満ならもう買えない)
+  function affordable(p) {
+    return Math.min(p, Math.floor(Math.min(PRICE_MAX, coins) / PRICE_STEP) * PRICE_STEP);
   }
 
-  function updateShop() {
-    // 手持ちで買える値段に収める
-    const maxAffordable = Math.floor(Math.min(PRICE_MAX, coins) / PRICE_STEP) * PRICE_STEP;
-    price = Math.max(PRICE_MIN, Math.min(price, maxAffordable));
-    walletEl.textContent = coins;
-    priceEl.textContent = price;
-    strengthLabel.textContent = `${strengthText(price)}(ダメージ×${damageMul(price).toFixed(1)})`;
-    strengthBar.style.width = (price / PRICE_MAX * 100) + '%';
-    document.getElementById('poiSwatch').style.borderColor = poiColor(price);
-    priceDownBtn.disabled = price <= PRICE_MIN;
-    priceUpBtn.disabled = price >= Math.min(PRICE_MAX, maxAffordable);
-    startBtn.disabled = coins < PRICE_MIN;
+  // ===== ポイ選択(画面下のアイコン) =====
+  function poiSvg(color) {
+    return `<svg viewBox="0 0 40 40" aria-hidden="true"><line x1="25" y1="25" x2="36" y2="36" stroke="${color}" stroke-width="5" stroke-linecap="round"/>` +
+      `<circle cx="17" cy="17" r="12" fill="rgba(255,255,255,.6)" stroke="${color}" stroke-width="4"/></svg>`;
+  }
+  let paletteOpen = false;
+  function buildPalette() {
+    for (let p = PRICE_MIN; p <= PRICE_MAX; p += PRICE_STEP) {
+      const d = document.createElement('div');
+      d.className = 'poiOpt';
+      d.dataset.price = p;
+      d.innerHTML = poiSvg(poiColor(p)) + p;
+      paletteRow.appendChild(d);
+    }
+  }
+  function updatePicker() {
+    document.getElementById('poiBtnIcon').innerHTML = poiSvg(poiColor(selPrice));
+    document.getElementById('poiBtnPrice').textContent = '🪙' + selPrice;
+    for (const d of paletteRow.children) {
+      const p = Number(d.dataset.price);
+      d.classList.toggle('sel', p === selPrice);
+      d.classList.toggle('cant', p > coins);
+    }
+  }
+  function openPalette() {
+    if (!inGame || state === 'paused') return;
+    updatePicker();
+    palette.hidden = false;
+    paletteOpen = true;
+    sfx.click();
+  }
+  function closePalette() {
+    palette.hidden = true;
+    paletteOpen = false;
+    setHover(null);
+  }
+  function optAt(x, y) {
+    const el = document.elementFromPoint(x, y);
+    return el && el.closest ? el.closest('.poiOpt') : null;
+  }
+  function setHover(opt) {
+    for (const d of paletteRow.children) d.classList.toggle('hover', d === opt);
+  }
+  function selectPrice(p) {
+    const changed = p !== selPrice;
+    selPrice = p;
+    try { localStorage.setItem(SEL_KEY, String(p)); } catch (e) {}
+    updatePicker();
+    closePalette();
+    sfx.click();
+    if (changed && inGame) popups.push({ x: W / 2, y: H - 150, text: `次のポイ:🪙${p}`, life: 1.3, color: poiColor(p) });
+  }
+  function showInGameUi(show) {
+    poiPicker.hidden = !show;
+    pauseBtn.hidden = !show;
+    if (!show) closePalette();
   }
 
-  // ポイ選択画面:タイトル(新しいゲーム)/ポイが破れた後(続き)の2通り
-  function showShop(next) {
-    titleBlock.hidden = next;
-    roundBlock.hidden = !next;
-    legendEl.hidden = next;
-    quitBtn.hidden = !next;
-    startBtn.textContent = next ? '次のポイを買う' : '買ってスタート';
-    startScreen.classList.toggle('compact', next);
-    document.body.classList.toggle('sheet', next);
-    updateShop();
-    endScreen.classList.add('hidden');
-    startScreen.classList.remove('hidden');
-  }
-
+  // ===== 画面遷移 =====
   function showTitle() {
     state = 'title';
     if (coins < PRICE_MIN) { showBroke(); return; }
-    showShop(false);
+    walletEl.textContent = coins;
+    document.getElementById('titlePoi').innerHTML = poiSvg(poiColor(selPrice)) + ' 🪙' + selPrice;
+    showInGameUi(false);
+    endScreen.classList.add('hidden');
+    startScreen.classList.remove('hidden');
   }
 
   // 起動時にコインがない場合
@@ -838,54 +884,58 @@
     bestScoreEl.textContent = 'ハイスコア:' + loadBest();
     document.getElementById('endWallet').textContent = '';
     document.getElementById('retryBtn').textContent = '🪙1000で最初から';
+    showInGameUi(false);
     startScreen.classList.add('hidden');
     endScreen.classList.remove('hidden');
   }
 
-  function loadBest() {
-    try { return Number(localStorage.getItem('fishHunterPoiBest') || 0); } catch (e) { return 0; }
+  function startGame() {
+    if (affordable(selPrice) < PRICE_MIN) { showBroke(); return; }
+    inGame = true;
+    score = 0;
+    populate();
+    splashes = []; popups = [];
+    startScreen.classList.add('hidden');
+    showInGameUi(true);
+    buyPoi(affordable(selPrice));
   }
 
-  function buyPoi() {
-    if (coins < PRICE_MIN) return;
-    updateShop();
-    if (!inGame) {
-      // 新しいゲーム
-      inGame = true;
-      score = 0;
-      populate();
-    }
-    coins -= price;
+  function buyPoi(p) {
+    price = p;
+    coins -= p;
     sfx.coin();
     saveCoins();
-    dmgMul = damageMul(price);
+    dmgMul = damageMul(p);
     roundCoins = 0;
     durability = 100;
-    splashes = []; popups = [];
     poi.active = false; poi.pointerId = null;
     updateHud();
-    startScreen.classList.add('hidden');
-    document.body.classList.remove('sheet');
+    updatePicker();
     // ボタンのタップがそのままポイ操作にならないよう少し待つ
     state = 'wait';
-    setTimeout(() => { state = 'playing'; }, 150);
+    setTimeout(() => { if (state === 'wait') state = 'playing'; }, 150);
   }
 
+  // ポイが破れた → 選択中のポイを自動で買って続行
   function poiBroken() {
-    state = 'between';
     poi.active = false;
     canvas.classList.remove('holding');
     const net = roundCoins - price;
-    document.getElementById('earnedCoins').innerHTML =
-      `もらったコイン 🪙${roundCoins}<br><small>ポイ代 ${price} → 収支 ${net >= 0 ? '+' : ''}${net}</small>`;
-    if (coins < PRICE_MIN) { sfx.broke(); finishGame(true); }
-    else showShop(true);
+    popups.push({ x: W / 2, y: H / 2 + 60, text: `このポイの収支 ${net >= 0 ? '+' : ''}${net}`, life: 1.8, small: true, color: net >= 0 ? '#ffd32a' : '#fff' });
+    const p = affordable(selPrice);
+    if (p < PRICE_MIN) { sfx.broke(); finishGame(true); return; }
+    buyPoi(p);
+    popups.push({ x: W / 2, y: H / 2 + 20, text: `新しいポイ 🪙${p}`, life: 1.6, color: poiColor(p) });
+    if (p < selPrice) popups.push({ x: W / 2, y: H / 2 + 90, text: 'コイン不足のため安いポイにしました', life: 2, small: true, color: '#ff7675' });
   }
 
   function finishGame(broke) {
     inGame = false;
     state = 'over';
     poi.active = false;
+    canvas.classList.remove('holding');
+    showInGameUi(false);
+    pauseScreen.classList.add('hidden');
     let best = loadBest();
     if (score > best) {
       best = score;
@@ -899,8 +949,6 @@
     finalScoreEl.textContent = score;
     document.getElementById('endWallet').textContent = broke ? '' : `手持ち 🪙${coins}`;
     document.getElementById('retryBtn').textContent = broke ? '🪙1000で最初から' : '新しいゲーム';
-    startScreen.classList.add('hidden');
-    document.body.classList.remove('sheet');
     endScreen.classList.remove('hidden');
   }
 
@@ -908,7 +956,6 @@
     if (coins < PRICE_MIN) {
       coins = START_COINS;
       saveCoins();
-      price = 50;
       sfx.coin();
     } else {
       sfx.click();
@@ -919,18 +966,48 @@
     showTitle();
   }
 
+  // ===== ポーズ =====
+  let stateBeforePause = 'playing';
+  function pauseGame() {
+    if (!inGame || state === 'paused') return;
+    stateBeforePause = state === 'ending' ? 'ending' : 'playing';
+    state = 'paused';
+    poi.active = false; poi.pointerId = null;
+    canvas.classList.remove('holding');
+    showInGameUi(false);
+    updateSettings();
+    pauseScreen.classList.remove('hidden');
+    sfx.click();
+  }
+  function resumeGame() {
+    pauseScreen.classList.add('hidden');
+    showInGameUi(true);
+    sfx.click();
+    // 再開ボタンのタップがポイ操作にならないよう少し待つ
+    state = 'wait';
+    setTimeout(() => { if (state === 'wait') state = stateBeforePause; }, 150);
+  }
+  function updateSettings() {
+    const snd = document.getElementById('soundToggle'), vib = document.getElementById('vibeToggle');
+    snd.textContent = muted ? 'オフ' : 'オン';
+    snd.classList.toggle('off', muted);
+    vib.textContent = vibeOn ? 'オン' : 'オフ';
+    vib.classList.toggle('off', !vibeOn);
+  }
+
   function loop(now) {
     const dt = Math.min(0.05, (now - lastTime) / 1000);
     lastTime = now;
 
-    updateBubbles(dt);
-    for (const f of fishes) updateFish(f, dt);
+    const sdt = state === 'paused' ? 0 : dt; // ポーズ中は時間を止める
+    updateBubbles(sdt);
+    for (const f of fishes) updateFish(f, sdt);
 
     drawBackground(now);
     for (const f of fishes) drawFish(f, now);
-    drawSplashes(dt);
+    drawSplashes(sdt);
     drawPoi(now);
-    drawPopups(dt);
+    drawPopups(sdt);
 
     if (state === 'ending') {
       endTimer -= dt;
@@ -971,6 +1048,7 @@
   if (window.PointerEvent) {
     canvas.addEventListener('pointerdown', (e) => {
       e.preventDefault();
+      if (paletteOpen) { closePalette(); return; } // 選択を開いている時は閉じるだけ
       if (e.button !== undefined && e.button > 0) return; // 左クリック/タッチのみ
       pressStart(e, e.pointerId);
       if (poi.pointerId === e.pointerId) { try { canvas.setPointerCapture(e.pointerId); } catch (_) {} }
@@ -995,20 +1073,65 @@
   document.addEventListener('contextmenu', (e) => e.preventDefault());
   document.addEventListener('dblclick', (e) => e.preventDefault());
 
-  startBtn.addEventListener('click', buyPoi);
-  quitBtn.addEventListener('click', () => { sfx.click(); finishGame(false); });
+  startBtn.addEventListener('click', startGame);
   document.getElementById('retryBtn').addEventListener('click', retry);
-  priceDownBtn.addEventListener('click', () => { price -= PRICE_STEP; sfx.click(); updateShop(); });
-  priceUpBtn.addEventListener('click', () => { price += PRICE_STEP; sfx.click(); updateShop(); });
-  const muteBtn = document.getElementById('muteBtn');
-  muteBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
-  muteBtn.addEventListener('click', () => {
+  pauseBtn.addEventListener('click', pauseGame);
+  document.getElementById('resumeBtn').addEventListener('click', resumeGame);
+  document.getElementById('quitBtn').addEventListener('click', () => { sfx.click(); finishGame(false); });
+  document.getElementById('soundToggle').addEventListener('click', () => {
     muted = !muted;
     try { localStorage.setItem(MUTE_KEY, muted ? '1' : '0'); } catch (e) {}
-    updateMuteBtn();
+    updateSettings();
     sfx.click();
   });
-  updateMuteBtn();
+  document.getElementById('vibeToggle').addEventListener('click', () => {
+    vibeOn = !vibeOn;
+    try { localStorage.setItem(VIBE_KEY, vibeOn ? '1' : '0'); } catch (e) {}
+    updateSettings();
+    sfx.click();
+    vibrate(30);
+  });
+
+  // ポイアイコン:
+  //  PC … 右クリック(または左クリック)で開き、クリックで選ぶ
+  //  スマホ … 長押しで開き、指を離さずスライドして離した所のポイを選ぶ(タップでも開閉できる)
+  const LONG_PRESS_MS = 350;
+  let press = null;
+  poiBtn.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    if (e.pointerType === 'mouse') {
+      if (paletteOpen) closePalette(); else openPalette();
+      return;
+    }
+    const wasOpen = paletteOpen;
+    press = { id: e.pointerId, opened: false, wasOpen };
+    press.timer = setTimeout(() => {
+      if (!paletteOpen) openPalette();
+      press.opened = true;
+      vibrate(15);
+    }, LONG_PRESS_MS);
+    try { poiBtn.setPointerCapture(e.pointerId); } catch (_) {}
+  });
+  poiBtn.addEventListener('pointermove', (e) => {
+    if (!press || press.id !== e.pointerId || !paletteOpen) return;
+    setHover(optAt(e.clientX, e.clientY));
+  });
+  poiBtn.addEventListener('pointerup', (e) => {
+    if (!press || press.id !== e.pointerId) return;
+    clearTimeout(press.timer);
+    const opt = paletteOpen ? optAt(e.clientX, e.clientY) : null;
+    if (opt) selectPrice(Number(opt.dataset.price));
+    else if (!press.opened) { if (press.wasOpen) closePalette(); else openPalette(); } // 短いタップ
+    setHover(null);
+    press = null;
+  });
+  poiBtn.addEventListener('pointercancel', () => { if (press) clearTimeout(press.timer); press = null; setHover(null); });
+  palette.addEventListener('click', (e) => {
+    const opt = e.target.closest('.poiOpt');
+    if (opt) selectPrice(Number(opt.dataset.price));
+  });
+  palette.addEventListener('pointerover', (e) => { if (e.pointerType === 'mouse') setHover(e.target.closest('.poiOpt')); });
+  palette.addEventListener('pointerleave', () => setHover(null));
 
   // ===== スタート画面の凡例 =====
   function buildLegend() {
@@ -1036,6 +1159,8 @@
   resize();
   initBubbles();
   buildLegend();
+  buildPalette();
+  updatePicker();
   populate();
   updateHud();
   showTitle();
