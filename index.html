@@ -128,19 +128,19 @@
   #poiPicker.overCancel #poiBtn { background: #e74c3c; transform: scale(1.25); }
   #palette {
     pointer-events: auto; touch-action: none;
-    width: min(calc(100% - 16px), 520px); margin-bottom: 8px; padding: 6px 6px 4px;
+    width: min(calc(100% - 16px), 340px); margin-bottom: 8px; padding: 6px 6px 4px;
     background: rgba(255,255,255,.94); border-radius: 14px; box-shadow: 0 6px 20px rgba(0,0,0,.35);
     color: #123; text-align: center;
   }
   #palette .head { font-size: 12px; font-weight: bold; color: #0a3d62; margin-bottom: 2px; }
-  #palette .row { display: flex; gap: 2px; }
+  #palette .row { display: flex; gap: 4px; }
   .poiOpt {
     flex: 1; min-width: 0; padding: 4px 0 3px; border-radius: 10px;
     display: flex; flex-direction: column; align-items: center;
-    font-size: 10px; font-weight: bold; color: #345;
+    font-size: 12px; font-weight: bold; color: #345;
     transition: transform .08s, background-color .08s;
   }
-  .poiOpt svg { width: 100%; max-width: 36px; height: auto; }
+  .poiOpt svg { width: 100%; max-width: 48px; height: auto; }
   .poiOpt.sel { background: #d6ecff; }
   .poiOpt.hover { background: #ffe8a3; transform: translateY(-5px) scale(1.12); }
   .poiOpt.cant { opacity: .35; }
@@ -234,7 +234,8 @@
 
   // コイン
   const START_COINS = 1000;
-  const PRICE_MIN = 10, PRICE_MAX = 100, PRICE_STEP = 10;
+  const POI_PRICES = [10, 40, 70, 100]; // 買えるポイ(緑・青・銀・金)
+  const PRICE_MIN = POI_PRICES[0];
   const COINS_KEY = 'fishHunterCoins';
   // 金のキンギョ:定期的に訪れ、しばらくすると去る
   const GOLD_VISIT_MIN = 20, GOLD_VISIT_RAND = 15; // 次に来るまでの秒数(20〜35秒)
@@ -244,7 +245,6 @@
   function damageMul(price) { return Math.pow(50 / price, 0.8); }
   // ポイの値段→格(0:緑 1:青 2:銀 3:金)
   const TIER_NAMES = ['緑', '青', '銀', '金'];
-  const TIER_PRICES = [10, 40, 70, 100]; // 各格の最安値(色の取得用)
   function poiTier(price) { return price >= 100 ? 3 : price >= 70 ? 2 : price >= 40 ? 1 : 0; }
   // ポイの値段→枠と持ち手の色
   function poiColor(price) {
@@ -860,16 +860,18 @@
   function loadSelPrice() {
     try {
       const v = Number(localStorage.getItem(SEL_KEY));
-      if (v >= PRICE_MIN && v <= PRICE_MAX && v % PRICE_STEP === 0) return v;
+      if (POI_PRICES.includes(v)) return v;
+      if (v >= PRICE_MIN) return POI_PRICES[poiTier(v)]; // 旧10段階の値段は同じ色のポイへ
     } catch (e) {}
     return 50;
   }
   function loadBest() {
     try { return Number(localStorage.getItem('fishHunterPoiBest') || 0); } catch (e) { return 0; }
   }
-  // 手持ちで買える範囲に下げた値段(PRICE_MIN未満ならもう買えない)
+  // 手持ちで買える範囲に下げた値段(0ならもう買えない)
   function affordable(p) {
-    return Math.min(p, Math.floor(Math.min(PRICE_MAX, coins) / PRICE_STEP) * PRICE_STEP);
+    const ok = POI_PRICES.filter(q => q <= p && q <= coins);
+    return ok.length ? ok[ok.length - 1] : 0;
   }
 
   // ===== ポイ選択(画面下のアイコン) =====
@@ -879,11 +881,11 @@
   }
   let paletteOpen = false;
   function buildPalette() {
-    for (let p = PRICE_MIN; p <= PRICE_MAX; p += PRICE_STEP) {
+    for (const p of POI_PRICES) {
       const d = document.createElement('div');
       d.className = 'poiOpt';
       d.dataset.price = p;
-      d.innerHTML = poiSvg(poiColor(p)) + p;
+      d.innerHTML = poiSvg(poiColor(p)) + `${TIER_NAMES[poiTier(p)]} 🪙${p}`;
       paletteRow.appendChild(d);
     }
   }
@@ -1273,7 +1275,7 @@
       const speed = t.speed < 50 ? 'おそい' : t.speed < 100 ? 'ふつう' : t.speed < 150 ? 'はやい' : 'とてもはやい';
       const span = document.createElement('span');
       span.innerHTML = `${t.rare ? '✨' : ''}${t.name}(${speed}):${t.points}点 🪙${t.coins} <small>ポイ-${t.damage}%</small>` +
-        `<br><span class="need">${poiSvg(poiColor(TIER_PRICES[t.tier]))}${TIER_NAMES[t.tier]}${t.tier < 3 ? '以上' : ''}のポイ</span>`;
+        `<br><span class="need">${poiSvg(poiColor(POI_PRICES[t.tier]))}${TIER_NAMES[t.tier]}${t.tier < 3 ? '以上' : ''}のポイ</span>`;
       li.appendChild(span);
       ul.appendChild(li);
     }
