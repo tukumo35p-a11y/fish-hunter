@@ -100,7 +100,19 @@
 
   .hudRight { display: flex; align-items: center; gap: 14px; white-space: nowrap; }
   .wallet { font-size: 17px; font-weight: bold; color: #b7791f; margin-bottom: 6px; }
-  .poiNote { font-size: 13px; color: #567; margin-bottom: 16px; }
+  .poiNote { font-size: 14px; color: #567; margin-bottom: 14px; }
+  .compactPanel { width: min(340px, 100%); padding: 22px 18px 18px; }
+  .infoBtns { display: flex; gap: 8px; }
+  .infoBtns button { flex: 1; font-size: 15px; min-height: 46px; }
+  .infoPanel { text-align: left; padding: 20px 18px; }
+  .infoPanel h2 { color: #0a3d62; text-align: center; margin-bottom: 8px; }
+  .infoPanel h3 { font-size: 16px; color: #0a3d62; margin: 14px 0 6px; border-left: 4px solid #74b9ff; padding-left: 8px; }
+  .infoPanel ul:not(.legend) { padding-left: 1.2em; font-size: 14px; line-height: 1.6; color: #345; }
+  .infoPanel .legend { display: block; margin: 8px 0 0; }
+  .infoPanel .closeInfo { margin-top: 18px; min-height: 50px; font-size: 18px; }
+  .poiRow { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #345; padding: 5px 0; border-bottom: 1px solid #e3edf3; }
+  .poiRow svg { width: 30px; height: 30px; flex: none; }
+  .poiRow b { color: #0a3d62; }
   .poiNote svg { width: 22px; height: 22px; vertical-align: -6px; }
 
   /* 画面下中央のポイアイコンと、10段階のポイ選択 */
@@ -184,20 +196,55 @@
 <button id="pauseBtn" aria-label="ポーズ" hidden>⏸</button>
 
 <div id="startScreen" class="overlay">
-  <div class="panel">
+  <div class="panel compactPanel">
     <h1>🎣 フィッシュハンター</h1>
-    <p><b>長押し</b>でポイを出し、魚の上で<b>離す</b>とすくえます。<br>
-       やめる時は画面下の✕まで運んで離す。<br>
-       魚は<b>ポイから逃げる</b>ので素早く!<br>
-       ポイが破れたら同じポイを自動で買って続行。<br>
-       魚をすくって<b>コインを増やそう</b>。<br>
-       <b>からぶりすると一発で破れる!</b><br>
-       コインが尽きたら終わり。</p>
     <div class="wallet">手持ち 🪙<span id="walletCoins">0</span></div>
-    <div class="poiNote">使うポイ:<span id="titlePoi"></span><br>
-      画面下のアイコンを長押し(PCは右クリック)で変更</div>
+    <div class="poiNote">使うポイ:<span id="titlePoi"></span></div>
     <button id="startBtn">スタート</button>
+    <div class="infoBtns">
+      <button id="rulesBtn" class="sub">📖 ルール説明</button>
+      <button id="fishBtn" class="sub">🐟 魚の説明</button>
+    </div>
+  </div>
+</div>
+
+<div id="rulesScreen" class="overlay hidden">
+  <div class="panel infoPanel">
+    <h2>📖 ルール説明</h2>
+    <h3>あそびかた</h3>
+    <ul>
+      <li>水面を<b>長押し</b>(約0.3秒)するとポイが出る</li>
+      <li>魚の上で指(ボタン)を<b>離す</b>とすくえる。範囲内の魚はまとめて捕獲</li>
+      <li>ポイを出す前に離せば何も起きない</li>
+      <li>やめる時はポイを画面下の<b>✕</b>まで運んで離す</li>
+      <li>魚はポイから<b>逃げる</b>ので素早く!</li>
+    </ul>
+    <h3>ポイ</h3>
+    <div id="poiTable"></div>
+    <ul>
+      <li>すくうたびに弱り、0%で破れる</li>
+      <li><b>からぶりすると一発で破れる</b></li>
+      <li>格上の魚をすくおうとすると<b>即破れて</b>魚も逃げる</li>
+      <li>破れたら選んでいるポイを自動で購入して続行(コイン不足なら買える一番高いポイ)</li>
+      <li>画面下のアイコンを長押し(PCは右クリック)でポイを変更。100%(未使用)ならすぐ交換、使用後は次のポイから</li>
+    </ul>
+    <h3>コイン・スコア</h3>
+    <ul>
+      <li>最初の手持ちは🪙100。魚をすくうとコインがもらえる</li>
+      <li>ポイが買えなくなったら(🪙10未満)ゲーム終了</li>
+      <li>2匹以上まとめてすくうとスコアにボーナス</li>
+      <li>✨金のキンギョはときどき泳いできて、しばらくすると去っていく</li>
+      <li>左下の⏸でポーズ(音・振動の設定、ゲーム終了)</li>
+    </ul>
+    <button class="closeInfo">閉じる</button>
+  </div>
+</div>
+
+<div id="fishScreen" class="overlay hidden">
+  <div class="panel infoPanel">
+    <h2>🐟 魚の説明</h2>
     <ul class="legend" id="legend"></ul>
+    <button class="closeInfo">閉じる</button>
   </div>
 </div>
 
@@ -1202,6 +1249,14 @@
   document.addEventListener('dblclick', (e) => e.preventDefault());
 
   startBtn.addEventListener('click', startGame);
+  // ルール説明・魚の説明
+  const rulesScreen = document.getElementById('rulesScreen');
+  const fishScreen = document.getElementById('fishScreen');
+  function openInfo(el) { sfx.click(); startScreen.classList.add('hidden'); el.classList.remove('hidden'); el.querySelector('.panel').scrollTop = 0; }
+  function closeInfo() { sfx.click(); rulesScreen.classList.add('hidden'); fishScreen.classList.add('hidden'); showTitle(); }
+  document.getElementById('rulesBtn').addEventListener('click', () => openInfo(rulesScreen));
+  document.getElementById('fishBtn').addEventListener('click', () => openInfo(fishScreen));
+  for (const b of document.querySelectorAll('.closeInfo')) b.addEventListener('click', closeInfo);
   document.getElementById('retryBtn').addEventListener('click', retry);
   pauseBtn.addEventListener('click', pauseGame);
   document.getElementById('resumeBtn').addEventListener('click', resumeGame);
@@ -1262,6 +1317,16 @@
   palette.addEventListener('pointerleave', () => setHover(null));
 
   // ===== スタート画面の凡例 =====
+  // ルール説明のポイ一覧
+  function buildPoiTable() {
+    const strength = ['やぶれやすい', 'ふつう', 'じょうぶ', 'とてもじょうぶ'];
+    document.getElementById('poiTable').innerHTML = POI_PRICES.map((p) => {
+      const tier = poiTier(p);
+      const names = FISH_TYPES.filter(t => t.tier <= tier).map(t => t.name).join('・');
+      return `<div class="poiRow">${poiSvg(poiColor(p))}<div><b>${TIER_NAMES[tier]} 🪙${p}</b>(${strength[tier]})<br>すくえる魚:${names}</div></div>`;
+    }).join('');
+  }
+
   function buildLegend() {
     const ul = document.getElementById('legend');
     for (const t of FISH_TYPES) {
@@ -1288,6 +1353,7 @@
   resize();
   initBubbles();
   buildLegend();
+  buildPoiTable();
   buildPalette();
   updatePicker();
   populate();
