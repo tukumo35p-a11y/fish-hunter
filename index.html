@@ -110,6 +110,7 @@
   .stepper button:active { box-shadow: 0 1px 0 #065a9e; }
   .price { font-size: 30px; font-weight: bold; color: #0a3d62; min-width: 4.2em; }
   .strength { margin-top: 10px; font-size: 14px; color: #345; }
+  .swatch { display: inline-block; width: 16px; height: 16px; border-radius: 50%; border: 4px solid; vertical-align: -3px; margin-right: 6px; background: #fff; }
   .strengthBar { height: 10px; border-radius: 5px; background: #d6e4ee; overflow: hidden; margin: 6px auto 0; max-width: 240px; }
   .strengthBar div { height: 100%; background: linear-gradient(90deg, #f39c12, #27ae60); transition: width .2s; }
   .earned { font-size: 18px; font-weight: bold; color: #b7791f; margin-bottom: 4px; }
@@ -143,7 +144,7 @@
         <div class="price">🪙<span id="price">50</span></div>
         <button id="priceUp" aria-label="高くする">+</button>
       </div>
-      <div class="strength">強さ:<b id="strengthLabel"></b>
+      <div class="strength"><span id="poiSwatch" class="swatch"></span>強さ:<b id="strengthLabel"></b>
         <div class="strengthBar"><div id="strengthBar"></div></div>
       </div>
     </div>
@@ -189,6 +190,13 @@
   const COINS_KEY = 'fishHunterCoins';
   // ポイの値段→ダメージ倍率(高いポイほど破れにくい。50コインで1倍)
   function damageMul(price) { return Math.pow(50 / price, 0.8); }
+  // ポイの値段→枠と持ち手の色
+  function poiColor(price) {
+    if (price >= 100) return '#f1c40f'; // 金
+    if (price >= 70) return '#c9d1d9';  // 銀
+    if (price >= 40) return '#2e86de';  // 青
+    return '#27ae60';                   // 緑
+  }
 
   // 魚の種類:size=楕円の横半径, speed=px/秒, points=得点, coins=もらえるコイン,
   // damage=すくった時のポイへのダメージ, shy=ポイから逃げる度合い(0〜)
@@ -492,7 +500,7 @@
     // 持ち手(右下に伸びる)
     const ang = Math.PI / 4;
     const hx = x + Math.cos(ang) * r, hy = y + Math.sin(ang) * r;
-    ctx.strokeStyle = '#e74c3c';
+    ctx.strokeStyle = poiColor(price);
     ctx.lineCap = 'round';
     ctx.lineWidth = Math.max(8, r * 0.2);
     ctx.beginPath();
@@ -520,7 +528,7 @@
     }
 
     // 枠
-    ctx.strokeStyle = '#e74c3c';
+    ctx.strokeStyle = poiColor(price);
     ctx.lineWidth = Math.max(4, r * 0.1);
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
@@ -670,6 +678,7 @@
     priceEl.textContent = price;
     strengthLabel.textContent = `${strengthText(price)}(ダメージ×${damageMul(price).toFixed(1)})`;
     strengthBar.style.width = (price / PRICE_MAX * 100) + '%';
+    document.getElementById('poiSwatch').style.borderColor = poiColor(price);
     priceDownBtn.disabled = price <= PRICE_MIN;
     priceUpBtn.disabled = price >= Math.min(PRICE_MAX, maxAffordable);
     startBtn.disabled = coins < PRICE_MIN;
