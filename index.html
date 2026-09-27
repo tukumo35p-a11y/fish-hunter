@@ -326,7 +326,7 @@
   const POI_PRICES = [10, 40, 70, 100]; // 買えるポイ(緑・青・銀・金)
   const PRICE_MIN = POI_PRICES[0];
   // フィーバータイム:コンボでフィーバーポイントがたまり、FEVER_MAXで30秒間突入
-  const FEVER_MAX = 100, FEVER_TIME = 30, FEVER_FISH = 8;
+  const FEVER_MAX = 100, FEVER_TIME = 30, FEVER_FISH = 8; // FEVER_FISH = カニ3+デメキン3+キンギョ2
   const COINS_KEY = 'fishHunterCoins2'; // 初期コイン100の新ルール(旧データは引き継がない)
   // 金のキンギョ:定期的に訪れ、しばらくすると去る
   const GOLD_VISIT_MIN = 20, GOLD_VISIT_RAND = 15; // 次に来るまでの秒数(20〜35秒)
@@ -864,9 +864,17 @@
   }
 
   // ===== フィーバータイム =====
-  const FEVER_TYPES = FISH_TYPES.filter(t => t.fever || t.rare);
+  // フィーバー中の顔ぶれ(いなくなった分は同じ種類を補充して、この数を保つ)
+  const FEVER_MIX = [['金のカニ', 3], ['金のデメキン', 3], ['金のキンギョ', 2]]
+    .map(([name, n]) => ({ type: FISH_TYPES.find(t => t.name === name), n }));
   function feverFish() {
-    const t = FEVER_TYPES[Math.floor(Math.random() * FEVER_TYPES.length)];
+    // いちばん足りない種類を補充
+    let best = FEVER_MIX[0], lack = -Infinity;
+    for (const m of FEVER_MIX) {
+      const d = m.n - fishes.filter(f => f.type === m.type).length;
+      if (d > lack) { lack = d; best = m; }
+    }
+    const t = best.type;
     const f = createFish(true, t);
     f.stay = Infinity; // フィーバー中の金のキンギョは去らない
     return f;
