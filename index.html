@@ -153,6 +153,14 @@
   }
   #poiBtn:active { transform: scale(.94); box-shadow: none; }
   #poiBtn svg { width: 34px; height: 34px; }
+  #poiBtn { position: relative; }
+  #poiNext {
+    position: absolute; top: -8px; right: -18px;
+    display: flex; align-items: center; gap: 1px; padding: 2px 5px 2px 6px;
+    font-size: 11px; font-weight: bold; color: #123;
+    background: rgba(255,255,255,.92); border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,.3);
+  }
+  #poiNext svg { width: 18px; height: 18px; }
   /* ポイを出している間はアイコンがキャンセル場所になる */
   #poiBtn .cancelIcon { display: none; font-size: 26px; line-height: 1; }
   #poiPicker.cancelMode #poiBtn { background: rgba(192,57,43,.55); border-color: #fff; transition: transform .1s, background-color .1s; }
@@ -217,7 +225,7 @@
     <div class="head" id="paletteHead">次のポイを選ぶ</div>
     <div class="row" id="paletteRow"></div>
   </div>
-  <button id="poiBtn" aria-label="ポイを変更(長押し・右クリック)"><span id="poiBtnIcon"></span><span id="poiBtnPrice"></span><b class="cancelIcon">✕</b><b class="cancelIcon cancelLabel">キャンセル</b></button>
+  <button id="poiBtn" aria-label="ポイを変更(長押し・右クリック)"><span id="poiBtnIcon"></span><span id="poiBtnPrice"></span><span id="poiNext" hidden></span><b class="cancelIcon">✕</b><b class="cancelIcon cancelLabel">キャンセル</b></button>
 </div>
 
 <button id="pauseBtn" aria-label="ポーズ" hidden>⏸</button>
@@ -1128,8 +1136,13 @@
     return inGame && !fever && durability >= 100 && (state === 'playing' || state === 'wait');
   }
   function updatePicker() {
-    document.getElementById('poiBtnIcon').innerHTML = poiSvg(poiColor(selPrice));
-    document.getElementById('poiBtnPrice').textContent = '🪙' + selPrice;
+    // アイコンは今使っているポイ(ゲーム外では次に使うポイ)。次のポイが違う時は右上に小さく表示
+    const shown = inGame ? price : selPrice;
+    document.getElementById('poiBtnIcon').innerHTML = poiSvg(poiColor(shown));
+    document.getElementById('poiBtnPrice').textContent = fever ? 'FEVER' : '🪙' + shown;
+    const next = document.getElementById('poiNext');
+    next.hidden = !inGame || selPrice === price && !fever;
+    next.innerHTML = '次' + poiSvg(poiColor(selPrice));
     const swap = canSwap();
     const budget = swap ? coins + price : coins;
     document.getElementById('paletteHead').textContent = swap ? 'ポイを交換(未使用なので今すぐ)' : '次のポイを選ぶ';
